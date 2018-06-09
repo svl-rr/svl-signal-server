@@ -1,0 +1,18 @@
+# SVL signal configuration file
+# Default sensor state is "off" (inactive).
+
+fryton_main_nb_hi:
+  destination_mast: ebbets_pass_main_nb
+  requirements:
+  - turnout: NT176
+    state: thrown  # we actually want it closed, but the switch is reversed.
+  - sensor: LS174  # fryton main
+  - sensor: LS176  # fryton siding switch (greeley side)
+
+fryton_main_nb_lo:
+  destination_mast: green
+  requirements:
+  - turnout: NT176
+    state: closed  # actually thrown; switch is reversed for some reason :(
+  - sensor: LS176  # fryton siding switch (greeley side)
+  - sensor: LS177  # fryton siding
