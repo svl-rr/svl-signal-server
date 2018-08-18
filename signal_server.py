@@ -8,7 +8,7 @@ import signal_config
 import jmri
 import time
 
-SIGNAL_CONFIG_FILE = './signal_config.yaml'
+SIGNAL_CONFIG_FILE = '/Users/svl/signal_server/signal_config.yaml'
 SVL_JMRI_SERVER_HOST = 'http://svl-jmri.local:12080'
 
 # root_logger = logging.getLogger()
@@ -17,18 +17,12 @@ logging.basicConfig(level=logging.DEBUG)
 # TODO: JMRI handle should be passed in to SignalMast __init__.
 
 
-
 def main():
 	signal_config_entries_by_name = signal_config.LoadConfig(SIGNAL_CONFIG_FILE)
 	jmri_handle = jmri.JMRI(SVL_JMRI_SERVER_HOST)
 
 	turnouts = jmri_handle.GetCurrentTurnoutData()
 	sensors = jmri_handle.GetCurrentSensorData()
-	
-	print 'TO176: ' + turnouts['NT176']
-	print 'Fryton Switch: ' + sensors['LS176']
-
-	# jmri_handle.SetSignalHead('fryton_main_nb_hi', SIGNAL_RESTRICTING)
 
 	for mast in signal_config_entries_by_name.itervalues():
 		logging.info('Configuring signal mast %s', mast)

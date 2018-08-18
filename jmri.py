@@ -10,7 +10,18 @@ SIGNAL_ENUM_TO_JMRI_ASPECT = {
 	SIGNAL_CLEAR: 'Clear',
 	SIGNAL_ADVANCE_APPROACH: 'Advance Approach',
 	SIGNAL_APPROACH: 'Approach',
+	SIGNAL_APPROACH_CLEAR_SIXTY: 'Approach Clear Sixty',
+	SIGNAL_APPROACH_CLEAR_FIFTY: 'Approach Clear Fifty',
+	SIGNAL_APPROACH_DIVERGING: 'Approach Diverging',
+	SIGNAL_APPROACH_RESTRICTING: 'Approach Restricting',
 	SIGNAL_RESTRICTING: 'Restricting',
+
+	SIGNAL_DIVERGING_CLEAR: 'Diverging Clear',
+	SIGNAL_DIVERGING_CLEAR_LIMITED: 'Diverging Clear Limited',
+	SIGNAL_DIVERGING_ADVANCE_APPROACH: 'Diverging Advance Approach',
+	SIGNAL_DIVERGING_APPROACH: 'Diverging Approach',
+	SIGNAL_DIVERGING_RESTRICTING: 'Restricting (Diverging)',
+
 	SIGNAL_STOP: 'Stop',
 }
 
@@ -38,8 +49,8 @@ class JMRI(object):
 			elif state == 4:
 				turnout_state = TURNOUT_THROWN
 			else:
-				logging.debug(
-					'Turnout %s had unknown json state value %s', name, state)
+				#logging.debug(
+				#	'Turnout %s had unknown json state value %s', name, state)
 				turnout_state = TURNOUT_UNKNOWN
 			turnout_states[name] = turnout_state
 		logging.debug('Fetched data for %d turnouts', len(turnout_states))
@@ -86,7 +97,11 @@ class JMRI(object):
 		logging.debug('Posting signal aspect change to %s: %s', url, json_data)
 
 		req = urllib2.Request(url, json_data, {'Content-Type': 'application/json'})
-		f = urllib2.urlopen(req)
+		try:
+			f = urllib2.urlopen(req)
+		except Exception as err:
+			logging.error('JMRI POST failed: %s', err)
+			return
 		response = f.read()
 		f.close()
 		logging.debug('JMRI POST response: %s', response)

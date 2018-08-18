@@ -1,12 +1,12 @@
 import logging
 
-class SignalRequirement(object):
+class Requirement(object):
 
     # TODO: should probs return most permissive aspect.
 	def IsSatisfied(self, turnouts, sensors):
 		raise NotImplementedError('Not implemented')
 
-class SensorRequirement(SignalRequirement):
+class SensorRequirement(Requirement):
 
 	def __init__(self, sensor_name, required_state):
 		self._sensor_name = sensor_name
@@ -28,7 +28,7 @@ class SensorRequirement(SignalRequirement):
 					  self, actual_sensor_state)
 		return False
 
-class TurnoutRequirement(SignalRequirement):
+class TurnoutRequirement(Requirement):
 
 	def __init__(self, turnout_name, required_state):
 		self._turnout_name = turnout_name
