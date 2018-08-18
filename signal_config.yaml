@@ -42,3 +42,18 @@ fryton_main_sb:
     - turnout: NT175
       state: thrown
     next_signal: green
+
+hallelujah_main_nb_paper:
+  normal_route:
+    requirements:
+    - turnout: NT225
+      state: closed
+    next_signal: green
+
+  diverging_route:
+    requirements:
+    - turnout: NT225
+      state: thrown
+    - turnout: NT227
+      state: thrown
+    next_signal: green
