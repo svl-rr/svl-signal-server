@@ -6,12 +6,14 @@ import yaml
 
 class SignalMast(object):
 
-    def __init__(self, mast_name):
+    def __init__(self, mast_name, dispatch_config=None):
         """Initializer.
 
         mast_name: str, JMRI signal mast name being described
+        dispatch_config: DispatchConfig or None
         """
         self._mast_name = mast_name
+        self._dispatch_config = dispatch_config
         # list of SignalRoute instances
         self._routes = []
 
@@ -21,12 +23,37 @@ class SignalMast(object):
     def __str__(self):
         return self._mast_name
 
-    def GetIntendedAspect(self, all_turnouts, all_sensors):
+    def GetIntendedAspect(self, context):
+        """context is a LayoutContext object."""
         logging.debug('  Determining aspect for signal %s', self)
+
+        if context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME):
+            if self._dispatch_config:
+                logging.debug('  Can be configured by dispatch var %s in direction %s',
+                              self._dispatch_config.memory_var_name, self._dispatch_config.direction)
+                var_value = context.memory_vars.get(self._dispatch_config.memory_var_name)
+                if var_value:
+                    logging.debug('  JMRI has a value for this variable: %s', var_value)
+                    value_parts = var_value.split(':')
+                    if len(value_parts) != 3:
+                        logging.error('Invalid memory contents: %s', var_value) 
+                    clear = 'Authorized ' + self._dispatch_config.direction
+                    occupied = 'Occupied ' + self._dispatch_config.direction
+                    if value_parts[1] == clear:
+                        # TODO: Figure out if clearance is ending by looking at forward signals
+                        return SIGNAL_CLEAR
+                    elif value_parts[1] == occupied:
+                        return SIGNAL_RESTRICTING
+                    else:
+                        logging.debug('  No dispatch clearance; got %s', clear)
+
+            return SIGNAL_STOP
+
+
         generated_aspects = []
         for i, route in enumerate(self._routes):
             logging.debug('    Checking route %s', i)
-            aspect_for_route = route.GetBestAspect(all_turnouts, all_sensors)
+            aspect_for_route = route.GetBestAspect(context)
             if aspect_for_route != SIGNAL_STOP:
                 logging.debug('    Route %s was %s', i, aspect_for_route)
                 generated_aspects.append(aspect_for_route)
@@ -50,9 +77,9 @@ class SignalRoute(object):
     def AddRequirement(self, requirement):
         self._requirements.append(requirement)
 
-    def GetBestAspect(self, all_turnouts, all_sensors):
+    def GetBestAspect(self, context):
         for i, req in enumerate(self._requirements):
-            if not req.IsSatisfied(all_turnouts, all_sensors):
+            if not req.IsSatisfied(context.turnout_state, context.sensor_state):
                 logging.debug('  Requirement %s unsatisfied', req)
                 return SIGNAL_STOP
         logging.debug('  All Requirements satisfied')
@@ -61,6 +88,15 @@ class SignalRoute(object):
         if self._is_diverging:
             return ConvertAspectToDivergingAspect(aspect)
         return aspect
+
+
+class DispatchConfig(object):
+    def __init__(self, memory_var_name, direction):
+        # A system or user name of a JMRI memory
+        # variable updated by the SVL Dispatcher.
+        self.memory_var_name = memory_var_name
+        # 'NB' or 'SB'.
+        self.direction = direction
 
 
 def ParseRoute(route_config, is_diverging=False):
@@ -106,7 +142,12 @@ def LoadConfig(config_file_path):
     for mast_name, configuration in config_data.items():
         logging.info('Parsing requirements for mast %s', mast_name)
 
-        signal = SignalMast(mast_name)
+        dispatch_config = None
+        if 'dispatch_control' in configuration:
+            d = configuration['dispatch_control']
+            dispatch_config = DispatchConfig(d['memory_var'], d['direction'])
+
+        signal = SignalMast(mast_name, dispatch_config)
 
         if 'normal_route' not in configuration:
             raise AttributeError('Signal must have a normal_route')
@@ -115,6 +156,6 @@ def LoadConfig(config_file_path):
         if 'diverging_route' in configuration:
             signal.AddRoute(ParseRoute(configuration['diverging_route'],
                                        is_diverging=True))
-            
+
         signal_entries[mast_name] = signal
     return signal_entries

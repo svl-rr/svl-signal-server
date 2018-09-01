@@ -76,6 +76,16 @@ class JMRI(object):
 		logging.debug('Fetched data for %d sensors', len(sensor_states))
 		return sensor_states
 
+	def GetMemoryVariables(self):
+		memory_data_json = self._GetJsonData('/json/memory')
+		memory_states = {}
+		for var in memory_data_json:
+			name = var['data']['name']
+			val = var['data']['value']
+			memory_states[name] = val
+		logging.debug('Fetched %d memory values', len(memory_states))
+		return memory_states
+
 	def SetSignalHead(self, mast_name, aspect):
 		"""Sets mast_name to an aspect.
 		   mast_name matches a signal mast name in JMRI.

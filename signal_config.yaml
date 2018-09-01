@@ -1,21 +1,24 @@
 # SVL signal configuration file
-# Default sensor state is "off" (inactive).
+# Default required sensor state is "off" (inactive).
 
-fryton_main_nb:
+fryton_main_sb:
+  dispatch_control:
+    memory_var: IMBA174
+    direction: SB
   normal_route:
     requirements:
     - turnout: NT176 # greeley -> fryton switch
       state: thrown  # we actually want it closed, but the switch is reversed.
     - sensor: LS174  # fryton main
     - sensor: LS176  # fryton siding switch (greeley side)
-    next_signal: ebbetts_pass_nb_from_fryton_main
+    next_signal: ebbetts_pass_sb_from_fryton_main
   diverging_route:
     requirements:
     - turnout: NT176 # greeley -> fryton switch
       state: closed  # this is actually thrown; switch is reversed for some reason :(
     - sensor: LS176  # fryton siding switch (greeley side)
     - sensor: LS177  # fryton siding
-    next_signal: ebbetts_pass_nb_from_fryton_siding
+    next_signal: ebbetts_pass_sb_from_fryton_siding
 
 #ebbetts_pass_nb_from_fryton_main:
 #  normal_route:
@@ -31,16 +34,18 @@ fryton_main_nb:
 #      state: thrown
 #    next_signal: green
 
-fryton_main_sb:
+fryton_main_nb:
   normal_route:
     requirements:
     - turnout: NT175
       state: closed
+    - sensor: LS174  # fryton main
     next_signal: green
   diverging_route:
     requirements:
     - turnout: NT175
       state: thrown
+    - sensor: LS177  # fryton siding
     next_signal: green
 
 hallelujah_main_nb_paper:
