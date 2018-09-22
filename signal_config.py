@@ -27,7 +27,7 @@ class SignalMast(object):
         """context is a LayoutContext object."""
         logging.debug('  Determining aspect for signal %s', self)
 
-        if context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME):
+        if context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME).lower() == 'yes':
             if self._dispatch_config:
                 logging.debug('  Can be configured by dispatch var %s in direction %s',
                               self._dispatch_config.memory_var_name, self._dispatch_config.direction)
