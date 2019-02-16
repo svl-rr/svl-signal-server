@@ -47,6 +47,17 @@ class JMRI(object):
 		logging.debug('Fetching JMRI JSON data from %s', url)
 		return json.load(urllib2.urlopen(url))
 
+	def _PostToJMRI(self, url, json_data):
+		req = urllib2.Request(url, json_data, {'Content-Type': 'application/json'})
+		try:
+			f = urllib2.urlopen(req)
+		except Exception as err:
+			logging.error('JMRI POST failed: %s', err)
+			return
+		response = f.read()
+		f.close()
+		logging.debug('JMRI POST response: %s', response)
+
 	def GetCurrentTurnoutData(self):
 		"""Returns a dictionary of {turnout name} -> {turnout value}."""
 		turnout_data_json = self._GetJsonData('/json/turnouts')
@@ -88,6 +99,7 @@ class JMRI(object):
 		return sensor_states
 
 	def GetMemoryVariables(self):
+		"""Returns {memory_name -> memory_value}."""
 		memory_data_json = self._GetJsonData('/json/memory')
 		memory_states = {}
 		for var in memory_data_json:
@@ -96,17 +108,6 @@ class JMRI(object):
 			memory_states[name] = val
 		logging.debug('Fetched %d memory values', len(memory_states))
 		return memory_states
-
-	def _PostToJMRI(self, url, json_data):
-		req = urllib2.Request(url, json_data, {'Content-Type': 'application/json'})
-		try:
-			f = urllib2.urlopen(req)
-		except Exception as err:
-			logging.error('JMRI POST failed: %s', err)
-			return
-		response = f.read()
-		f.close()
-		logging.debug('JMRI POST response: %s', response)
 
 	def SetSignalHeadAppearance(self, head_name, appearance):
 		jmri_number = HEAD_ENUM_TO_JMRI_NUMBER.get(appearance, -1)
@@ -145,3 +146,37 @@ class JMRI(object):
 		})
 		logging.debug('Posting signal aspect change to %s: %s', url, json_data)
 		self._PostToJMRI(url, json_data)
+
+
+class FakeJMRI(JMRI):
+	def __init__(self):
+		super(FakeJMRI, self).__init__('fake_jmri_address')
+
+	def GetCurrentTurnoutData(self):
+		return {
+			'NT176': TURNOUT_CLOSED,
+			'NT225': TURNOUT_CLOSED,
+			'NT227': TURNOUT_CLOSED,
+			'NT325': TURNOUT_CLOSED,
+		}
+
+	def GetCurrentSensorData(self):
+		return {
+			'LS174': SENSOR_INACTIVE,
+			'LS176': SENSOR_INACTIVE,
+			'LS177': SENSOR_INACTIVE,
+			'LS204': SENSOR_INACTIVE,
+		}
+
+	def GetMemoryVariables(self):
+		return {
+			'IMBA174': '',
+			'IMSVL_DISPATCH_SIGNALING': '',
+		}
+
+	def _GetJsonData(self, url_path):
+		raise NotImplementedError
+
+	def _PostToJMRI(self, url, json_data):
+		return True
+

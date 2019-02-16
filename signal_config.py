@@ -4,6 +4,22 @@ from signal_requirements import *
 import yaml
 
 
+class SignalSummary(object):
+    def __init__(self, aspect, appearance, reason):
+        self.aspect = aspect.replace('SIGNAL_', '')
+        self.appearance = appearance
+        self.reason = reason
+
+    @classmethod
+    def PrettyAppearance(cls, head1, head2=None):
+        head1 = head1.replace('HEAD_', '')
+        if head2:
+            head2 = head2.replace('HEAD_', '')
+            return '%s over %s' % (head1, head2)
+        else:
+            return head1
+
+
 class SignalMast(object):
 
     def __init__(self, mast_name, dispatch_config=None):
@@ -26,6 +42,7 @@ class SignalMast(object):
     def GetIntendedAspect(self, context):
         """Returns a SIGNAL_* instance; context is a LayoutContext object."""
         logging.debug('  Determining aspect for signal %s', self)
+        reason = 'Unknown'
 
         if context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME).lower() == 'yes':
             if self._dispatch_config:
@@ -36,40 +53,43 @@ class SignalMast(object):
                     logging.debug('  JMRI has a value for this variable: %s', var_value)
                     value_parts = var_value.split(':')
                     if len(value_parts) != 3:
-                        logging.error('Invalid memory contents: %s', var_value) 
-                    clear = 'Authorized ' + self._dispatch_config.direction
-                    occupied = 'Occupied ' + self._dispatch_config.direction
+                        return SIGNAL_STOP, 'Invalid memory contents: %s' % var_value
+                    direction = self._dispatch_config.direction
+                    clear = 'Authorized ' + direction
+                    occupied = 'Occupied ' + direction
                     if value_parts[1] == clear:
                         # TODO: Figure out if clearance is ending by looking at forward signals
-                        return SIGNAL_CLEAR
+                        return SIGNAL_CLEAR, 'Dispatch authorized %s' % direction
                     elif value_parts[1] == occupied:
-                        return SIGNAL_RESTRICTING
+                        return SIGNAL_RESTRICTING, 'Dispatch occupied %s' % direction
                     else:
-                        logging.debug('  No dispatch clearance; got %s', clear)
+                        return SIGNAL_STOP, 'No dispatch clearance: %s' % value_parts[1]
 
-            return SIGNAL_STOP
-
+            return SIGNAL_STOP, 'Missing or invalid dispatch config'\
 
         generated_aspects = []
         for i, route in enumerate(self._routes):
             logging.debug('    Checking route %s', i)
-            aspect_for_route = route.GetBestAspect(context)
+            aspect_for_route, reason = route.GetBestAspect(context)
             if aspect_for_route != SIGNAL_STOP:
                 logging.debug('    Route %s was %s', i, aspect_for_route)
-                generated_aspects.append(aspect_for_route)
+                generated_aspects.append((aspect_for_route, reason))
         if not generated_aspects:
             logging.debug('  Signal %s has no non-stop routes', self)
-            return SIGNAL_STOP
+            return SIGNAL_STOP, 'No non-STOP route'
         if len(generated_aspects) > 1:
             logging.error('  Signal %s has two non-stop routes! Using SIGNAL_STOP.', self)
-            return SIGNAL_STOP
-        logging.debug('  Signal %s is %s', self, generated_aspects[0])
+            return SIGNAL_STOP, 'ERROR: Multiple routes possible'
         return generated_aspects[0]
 
     def PutAspect(self, context, jmri_handle):
         """Enacts the will of this SignalMast in JMRI."""
+        aspect, reason = self.GetIntendedAspect(context)
+        logging.debug('  Signal %s at %s: %s',
+            self._mast_name, aspect, reason)
         jmri_handle.SetSignalMastAspect(
-            self._mast_name, self.GetIntendedAspect(context))
+            self._mast_name, aspect)
+        return SignalSummary(aspect, 'None (JMRI Mast)', reason)
 
 
 class SingleHeadMast(SignalMast):
@@ -92,11 +112,15 @@ class SingleHeadMast(SignalMast):
         return HEAD_RED
 
     def PutAspect(self, context, jmri_handle):
-        aspect = self.GetIntendedAspect(context)
+        aspect, reason = self.GetIntendedAspect(context)
         appearance = self.GetAppearance(aspect)
-        logging.debug('  %s mapped aspect %s to %s',
-            self._mast_name, aspect, appearance)
+        logging.debug('  %s mapped aspect %s to %s [%s]',
+            self._mast_name, aspect, appearance, reason)
         jmri_handle.SetSignalHeadAppearance(self._head_name, appearance)
+        return SignalSummary(
+            aspect,
+            SignalSummary.PrettyAppearance(appearance),
+            reason)
 
 
 class DoubleHeadMast(SignalMast):
@@ -106,7 +130,7 @@ class DoubleHeadMast(SignalMast):
         self._lower_head_name = lower_head_name
 
     def PutAspect(self, context, jmri_handle):
-        aspect = self.GetIntendedAspect(context)
+        aspect, reason = self.GetIntendedAspect(context)
         upper_appearance = lower_appearance = HEAD_RED
         if 'DIVERGING' in aspect:
             if aspect == SIGNAL_APPROACH_DIVERGING:
@@ -123,8 +147,15 @@ class DoubleHeadMast(SignalMast):
         else:
             # Same as normal signal mast, but over red.
             upper_appearance = SingleHeadMast.GetAppearance(aspect)
+        
+        logging.debug('  Mast %s is %s (%s over %s): %s',
+            self._mast_name, aspect, upper_appearance, lower_appearance, reason)
         jmri_handle.SetSignalHeadAppearance(self._upper_head_name, upper_appearance)
         jmri_handle.SetSignalHeadAppearance(self._lower_head_name, lower_appearance)
+        return SignalSummary(
+            aspect,
+            SignalSummary.PrettyAppearance(upper_appearance, lower_appearance),
+            reason)
 
 
 class SignalRoute(object):
@@ -140,14 +171,14 @@ class SignalRoute(object):
     def GetBestAspect(self, context):
         for i, req in enumerate(self._requirements):
             if not req.IsSatisfied(context.turnout_state, context.sensor_state):
-                logging.debug('  Requirement %s unsatisfied', req)
-                return SIGNAL_STOP
+                return SIGNAL_STOP, 'Unsatisfied: %s' % req
         logging.debug('  All Requirements satisfied')
         # TODO: consider next signal.
         aspect = SIGNAL_CLEAR
         if self._is_diverging:
-            return ConvertAspectToDivergingAspect(aspect)
-        return aspect
+            return (ConvertAspectToDivergingAspect(aspect),
+                    'Diverging to %s' % self._next_mast_name)
+        return aspect, 'Clear to %s' % self._next_mast_name
 
 
 class DispatchConfig(object):
@@ -227,7 +258,7 @@ def LoadConfig(config_file_path):
                 raise AttributeError('lower_head_name required if upper_head_name provided')
             upper = configuration['upper_head_name']
             lower = configuration['lower_head_name']
-            logging.info('  Mast %s configured with heads %s + %s', upper, lower)
+            logging.info('  Mast %s configured with heads %s + %s', mast_name, upper, lower)
             signal = DoubleHeadMast(mast_name, upper, lower, dispatch_config)
         else:
             signal = SignalMast(mast_name, dispatch_config)

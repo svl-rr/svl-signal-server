@@ -13,7 +13,7 @@ class SensorRequirement(Requirement):
 		self._required_state = required_state
 
 	def __str__(self):
-		return 'SensorRequirement{%s=%s}' % (self._sensor_name, self._required_state)
+		return '{%s=%s}' % (self._sensor_name, self._required_state)
 
 	def IsSatisfied(self, turnouts, sensors):
 		actual_sensor_state = sensors.get(self._sensor_name)
@@ -35,7 +35,7 @@ class TurnoutRequirement(Requirement):
 		self._required_state = required_state
 
 	def __str__(self):
-		return 'TurnoutRequirement{%s=%s}' % (self._turnout_name, self._required_state)
+		return '{%s=%s}' % (self._turnout_name, self._required_state)
 
 	def IsSatisfied(self, turnouts, sensors):
 		actual_turnout_state = turnouts.get(self._turnout_name)
