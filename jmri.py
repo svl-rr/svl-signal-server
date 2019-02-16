@@ -25,6 +25,17 @@ SIGNAL_ENUM_TO_JMRI_ASPECT = {
 	SIGNAL_STOP: 'Stop',
 }
 
+# Yup: https://github.com/JMRI/JMRI/blob/master/java/src/jmri/SignalHead.java#L56
+HEAD_ENUM_TO_JMRI_NUMBER = {
+	HEAD_GREEN: 16,
+	HEAD_FLASHING_GREEN: 32,
+	HEAD_YELLOW: 4,
+	HEAD_FLASHING_YELLOW: 8,
+	HEAD_RED: 1,
+	HEAD_FLASHING_RED: 2,
+	HEAD_DARK: 0,
+}
+
 class JMRI(object):
 	def __init__(self, jmri_server_address):
 		self._jmri_server_address = jmri_server_address
@@ -86,7 +97,35 @@ class JMRI(object):
 		logging.debug('Fetched %d memory values', len(memory_states))
 		return memory_states
 
-	def SetSignalHead(self, mast_name, aspect):
+	def _PostToJMRI(self, url, json_data):
+		req = urllib2.Request(url, json_data, {'Content-Type': 'application/json'})
+		try:
+			f = urllib2.urlopen(req)
+		except Exception as err:
+			logging.error('JMRI POST failed: %s', err)
+			return
+		response = f.read()
+		f.close()
+		logging.debug('JMRI POST response: %s', response)
+
+	def SetSignalHeadAppearance(self, head_name, appearance):
+		jmri_number = HEAD_ENUM_TO_JMRI_NUMBER.get(appearance, -1)
+		if jmri_number == -1:
+			raise RuntimeError('Appearance %s invalid' % appearance)
+		path = '/json/signalHead/' + head_name
+		url = urlparse.urljoin(self._jmri_server_address, path)
+
+		json_data = json.dumps({
+			"type": "signalHead",
+			"data": {
+				"name": head_name,
+				"state": jmri_number,
+			}
+		})
+		logging.debug('Posting signal head change to %s: %s', url, json_data)
+		self._PostToJMRI(url, json_data)
+
+	def SetSignalMastAspect(self, mast_name, aspect):
 		"""Sets mast_name to an aspect.
 		   mast_name matches a signal mast name in JMRI.
 		   aspect is a SIGNAL_* enum value.
@@ -105,13 +144,4 @@ class JMRI(object):
 			}
 		})
 		logging.debug('Posting signal aspect change to %s: %s', url, json_data)
-
-		req = urllib2.Request(url, json_data, {'Content-Type': 'application/json'})
-		try:
-			f = urllib2.urlopen(req)
-		except Exception as err:
-			logging.error('JMRI POST failed: %s', err)
-			return
-		response = f.read()
-		f.close()
-		logging.debug('JMRI POST response: %s', response)
+		self._PostToJMRI(url, json_data)

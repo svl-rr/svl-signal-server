@@ -10,6 +10,7 @@ import time
 
 SIGNAL_CONFIG_FILE = '/Users/svl/signal_server/signal_config.yaml'
 SVL_JMRI_SERVER_HOST = 'http://svl-jmri.local:12080'
+SECONDS_BETWEEN_POLLS = 1.5
 
 # root_logger = logging.getLogger()
 logging.basicConfig(level=logging.DEBUG)
@@ -33,9 +34,7 @@ def main():
 
 	for mast in signal_config_entries_by_name.itervalues():
 		logging.info('Configuring signal mast %s', mast)
-		aspect = mast.GetIntendedAspect(context)
-		logging.info('  Intended aspect is %s', aspect)
-		jmri_handle.SetSignalHead(mast._mast_name, aspect)
+		mast.PutAspect(context, jmri_handle)
 
 if __name__ == '__main__':
 	while True:
@@ -43,4 +42,4 @@ if __name__ == '__main__':
 			main()
 		except Exception as e:
 			logging.exception(e)
-		time.sleep(.5)
+		time.sleep(SECONDS_BETWEEN_POLLS)

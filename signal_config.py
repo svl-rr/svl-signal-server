@@ -24,7 +24,7 @@ class SignalMast(object):
         return self._mast_name
 
     def GetIntendedAspect(self, context):
-        """context is a LayoutContext object."""
+        """Returns a SIGNAL_* instance; context is a LayoutContext object."""
         logging.debug('  Determining aspect for signal %s', self)
 
         if context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME).lower() == 'yes':
@@ -64,7 +64,67 @@ class SignalMast(object):
             logging.error('  Signal %s has two non-stop routes! Using SIGNAL_STOP.', self)
             return SIGNAL_STOP
         logging.debug('  Signal %s is %s', self, generated_aspects[0])
-        return generated_aspects[0]        
+        return generated_aspects[0]
+
+    def PutAspect(self, context, jmri_handle):
+        """Enacts the will of this SignalMast in JMRI."""
+        jmri_handle.SetSignalMastAspect(
+            self._mast_name, self.GetIntendedAspect(context))
+
+
+class SingleHeadMast(SignalMast):
+    def __init__(self, mast_name, head_name, dispatch_config=None):
+        super(SingleHeadMast, self).__init__(mast_name, dispatch_config)
+        self._head_name = head_name
+
+    @classmethod
+    def GetAppearance(cls, aspect):
+        if aspect == SIGNAL_CLEAR:
+            return HEAD_GREEN
+        elif 'APPROACH_CLEAR' in aspect:
+            return HEAD_FLASHING_GREEN
+        elif aspect == SIGNAL_ADVANCE_APPROACH:
+            return HEAD_FLASHING_YELLOW
+        elif 'APPROACH' in aspect:
+            return HEAD_YELLOW
+        elif aspect == SIGNAL_RESTRICTING:
+            return HEAD_FLASHING_RED
+        return HEAD_RED
+
+    def PutAspect(self, context, jmri_handle):
+        aspect = self.GetIntendedAspect(context)
+        appearance = self.GetAppearance(aspect)
+        logging.debug('  %s mapped aspect %s to %s',
+            self._mast_name, aspect, appearance)
+        jmri_handle.SetSignalHeadAppearance(self._head_name, appearance)
+
+
+class DoubleHeadMast(SignalMast):
+    def __init__(self, mast_name, upper_head_name, lower_head_name, dispatch_config=None):
+        super(DoubleHeadMast, self).__init__(mast_name, dispatch_config)
+        self._upper_head_name = upper_head_name
+        self._lower_head_name = lower_head_name
+
+    def PutAspect(self, context, jmri_handle):
+        aspect = self.GetIntendedAspect(context)
+        upper_appearance = lower_appearance = HEAD_RED
+        if 'DIVERGING' in aspect:
+            if aspect == SIGNAL_APPROACH_DIVERGING:
+                upper_appearance = lower_appearance = HEAD_YELLOW
+            else:
+                # all other *DIVERGING* aspects are red over <something>
+                lower_appearance = {
+                    SIGNAL_DIVERGING_CLEAR: HEAD_GREEN,
+                    SIGNAL_DIVERGING_CLEAR_LIMITED: HEAD_FLASHING_GREEN,
+                    SIGNAL_DIVERGING_ADVANCE_APPROACH: HEAD_FLASHING_YELLOW,
+                    SIGNAL_DIVERGING_APPROACH: HEAD_YELLOW,
+                    SIGNAL_DIVERGING_RESTRICTING: HEAD_FLASHING_RED,
+                }.get(aspect, HEAD_RED)
+        else:
+            # Same as normal signal mast, but over red.
+            upper_appearance = SingleHeadMast.GetAppearance(aspect)
+        jmri_handle.SetSignalHeadAppearance(self._upper_head_name, upper_appearance)
+        jmri_handle.SetSignalHeadAppearance(self._lower_head_name, lower_appearance)
 
 
 class SignalRoute(object):
@@ -100,6 +160,16 @@ class DispatchConfig(object):
 
 
 def ParseRoute(route_config, is_diverging=False):
+    """Parse a route config stanza into a SignalRoute.
+
+    Args: 
+        route_config: dict, yaml config stanza for a route.
+        is_diverging: bool, True if the route_config is for
+          a diverging_route config stanza.
+
+    Returns:
+        SignalRoute instance.
+    """
     route = SignalRoute(route_config.get('next_signal'), is_diverging)
     if 'requirements' not in route_config:
         raise AttributeError('Route config must have requirements')
@@ -136,9 +206,9 @@ def ParseRoute(route_config, is_diverging=False):
     return route
 
 def LoadConfig(config_file_path):
-    """Returns a map of {signal_name -> SignalConfigEntry}."""
+    """Returns a map of {signal_name -> SignalMast}."""
     config_data = yaml.load(open(config_file_path, 'r'))
-    signal_entries = {}  # name -> SignalConfigEntry
+    signal_entries = {}  # name -> SignalMast
     for mast_name, configuration in config_data.items():
         logging.info('Parsing requirements for mast %s', mast_name)
 
@@ -147,7 +217,20 @@ def LoadConfig(config_file_path):
             d = configuration['dispatch_control']
             dispatch_config = DispatchConfig(d['memory_var'], d['direction'])
 
-        signal = SignalMast(mast_name, dispatch_config)
+        if 'head_name' in configuration:
+            head = configuration['head_name']
+            logging.info('  Mast %s configured with single head %s',
+                mast_name, head)
+            signal = SingleHeadMast(mast_name, head, dispatch_config)
+        elif 'upper_head_name' in configuration:
+            if 'lower_head_name' not in configuration:
+                raise AttributeError('lower_head_name required if upper_head_name provided')
+            upper = configuration['upper_head_name']
+            lower = configuration['lower_head_name']
+            logging.info('  Mast %s configured with heads %s + %s', upper, lower)
+            signal = DoubleHeadMast(mast_name, upper, lower, dispatch_config)
+        else:
+            signal = SignalMast(mast_name, dispatch_config)
 
         if 'normal_route' not in configuration:
             raise AttributeError('Signal must have a normal_route')

@@ -34,7 +34,19 @@ fryton_main_sb:
 #      state: thrown
 #    next_signal: green
 
+Kaos:
+  upper_head_name: KaosA
+  lower_head_name: KaosB
+  normal_route:
+    requirements:
+    - turnout: NT325
+      state: closed
+    - sensor: LS204  # jericho sb
+    next_signal: green
+
 fryton_main_nb:
+  upper_head_name: fryton_main_nb_hi
+  lower_head_name: fryton_main_nb_lo
   normal_route:
     requirements:
     - turnout: NT175
