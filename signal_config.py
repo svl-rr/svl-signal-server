@@ -84,6 +84,8 @@ class SignalMast(object):
 
     def PutAspect(self, context, jmri_handle):
         """Enacts the will of this SignalMast in JMRI."""
+        raise NotImplementedError
+
         aspect, reason = self.GetIntendedAspect(context)
         logging.debug('  Signal %s at %s: %s',
             self._mast_name, aspect, reason)
@@ -93,9 +95,9 @@ class SignalMast(object):
 
 
 class SingleHeadMast(SignalMast):
-    def __init__(self, mast_name, head_name, dispatch_config=None):
+    def __init__(self, mast_name, head_address, dispatch_config=None):
         super(SingleHeadMast, self).__init__(mast_name, dispatch_config)
-        self._head_name = head_name
+        self._head_address = head_address
 
     @classmethod
     def GetAppearance(cls, aspect):
@@ -116,7 +118,7 @@ class SingleHeadMast(SignalMast):
         appearance = self.GetAppearance(aspect)
         logging.debug('  %s mapped aspect %s to %s [%s]',
             self._mast_name, aspect, appearance, reason)
-        jmri_handle.SetSignalHeadAppearance(self._head_name, appearance)
+        jmri_handle.SetSignalHeadAppearance(self._mast_name, appearance)
         return SignalSummary(
             aspect,
             SignalSummary.PrettyAppearance(appearance),
@@ -124,10 +126,10 @@ class SingleHeadMast(SignalMast):
 
 
 class DoubleHeadMast(SignalMast):
-    def __init__(self, mast_name, upper_head_name, lower_head_name, dispatch_config=None):
+    def __init__(self, mast_name, upper_head_address, lower_head_address, dispatch_config=None):
         super(DoubleHeadMast, self).__init__(mast_name, dispatch_config)
-        self._upper_head_name = upper_head_name
-        self._lower_head_name = lower_head_name
+        self._upper_head_address = upper_head_address
+        self._lower_head_address = lower_head_address
 
     def PutAspect(self, context, jmri_handle):
         aspect, reason = self.GetIntendedAspect(context)
@@ -150,8 +152,8 @@ class DoubleHeadMast(SignalMast):
         
         logging.debug('  Mast %s is %s (%s over %s): %s',
             self._mast_name, aspect, upper_appearance, lower_appearance, reason)
-        jmri_handle.SetSignalHeadAppearance(self._upper_head_name, upper_appearance)
-        jmri_handle.SetSignalHeadAppearance(self._lower_head_name, lower_appearance)
+        jmri_handle.SetSignalHeadAppearance(self._mast_name + '_upper', upper_appearance)
+        jmri_handle.SetSignalHeadAppearance(self._mast_name + '_lower', lower_appearance)
         return SignalSummary(
             aspect,
             SignalSummary.PrettyAppearance(upper_appearance, lower_appearance),
@@ -248,16 +250,16 @@ def LoadConfig(config_file_path):
             d = configuration['dispatch_control']
             dispatch_config = DispatchConfig(d['memory_var'], d['direction'])
 
-        if 'head_name' in configuration:
-            head = configuration['head_name']
+        if 'head_address' in configuration:
+            head = configuration['head_address']
             logging.info('  Mast %s configured with single head %s',
                 mast_name, head)
             signal = SingleHeadMast(mast_name, head, dispatch_config)
-        elif 'upper_head_name' in configuration:
-            if 'lower_head_name' not in configuration:
-                raise AttributeError('lower_head_name required if upper_head_name provided')
-            upper = configuration['upper_head_name']
-            lower = configuration['lower_head_name']
+        elif 'upper_head_address' in configuration:
+            if 'lower_head_address' not in configuration:
+                raise AttributeError('lower_head_address required if upper_head_address provided')
+            upper = configuration['upper_head_address']
+            lower = configuration['lower_head_address']
             logging.info('  Mast %s configured with heads %s + %s', mast_name, upper, lower)
             signal = DoubleHeadMast(mast_name, upper, lower, dispatch_config)
         else:

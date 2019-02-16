@@ -11,6 +11,7 @@ import os
 import traceback
 import time
 import prettytable
+from lxml import etree
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -27,9 +28,69 @@ class LayoutContext(object):
 		self.sensor_state = sensor_state
 		self.memory_vars = memory_vars
 
+def _SignalHeadTree(address, name):
+	CLASS = 'jmri.implementation.configurexml.DccSignalHeadXml'
+	head = etree.Element('signalhead')
+	head.attrib['class'] = CLASS
+
+	system_name_text = 'NH$%s' % address
+	head.attrib['systemName'] = system_name_text
+	head.attrib['userName'] = name
+
+	systemName = etree.Element('systemName')
+	systemName.text = system_name_text
+	head.append(systemName)
+
+	userName = etree.Element('userName')
+	userName.text = name
+	head.append(userName)
+
+	useAddressOffSet = etree.Element('useAddressOffSet')
+	useAddressOffSet.text = 'no'
+	head.append(useAddressOffSet)
+
+	# Default NCE Light-It Aspect numbers.
+	aspects = {
+		'Red': 0,
+		'Yellow': 1,
+		'Green': 2,
+		'Flashing Red': 3,
+		'Flashing Yellow': 4,
+		'Flashing Green': 5,
+
+		# Not implemented.
+		'Dark': 31,
+		'Lunar': 31,
+		'Flashing Lunar': 31,
+	}
+
+	for aspect_name, aspect_num in aspects.iteritems():
+		aspect = etree.Element('aspect', defines=aspect_name)
+		number = etree.Element('number')
+		number.text = str(aspect_num)
+		aspect.append(number)
+		head.append(aspect)
+
+	return head
+
+
+def OutputXML():
+	signal_masts_by_name = signal_config.LoadConfig(SIGNAL_CONFIG_FILE)
+	signalheads = etree.Element('signalheads')
+	for name, mast in signal_masts_by_name.iteritems():
+		if type(mast) == signal_config.DoubleHeadMast:
+			upper = _SignalHeadTree(mast._upper_head_address, mast._mast_name + '_upper')
+			signalheads.append(upper)
+			lower = _SignalHeadTree(mast._lower_head_address, mast._mast_name + '_lower')
+			signalheads.append(lower)
+		elif type(mast) == signal_config.SingleHeadMast:
+			signalheads.append(_SignalHeadTree(mast._head_address, mast._mast_name))
+
+	print etree.tostring(signalheads, pretty_print=True)
+
 def Update(jmri_handle):
 	try:
-		signal_config_entries_by_name = signal_config.LoadConfig(SIGNAL_CONFIG_FILE)
+		signal_masts_by_name = signal_config.LoadConfig(SIGNAL_CONFIG_FILE)
 		
 		context = LayoutContext(jmri_handle.GetCurrentTurnoutData(),
 			                    jmri_handle.GetCurrentSensorData(),
@@ -38,7 +99,7 @@ def Update(jmri_handle):
 		table = prettytable.PrettyTable()
 		table.field_names = ['Mast', 'Aspect', 'Appearance', 'Reason']
 
-		for mast in signal_config_entries_by_name.itervalues():
+		for mast in signal_masts_by_name.itervalues():
 			logging.info('Configuring signal mast %s', mast)
 			summary = mast.PutAspect(context, jmri_handle)
 			table.add_row([str(mast), summary.aspect, summary.appearance, summary.reason])
@@ -56,16 +117,21 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--fake_jmri', type=bool, default=False)
 	parser.add_argument('--pretty', type=bool, default=False)
+	parser.add_argument('--output_xml', type=bool, default=False)
 	args = parser.parse_args()
 
 	logging_args = {
 		'format': '%(asctime)s %(filename)s:%(lineno)d %(message)s',
 		'level': logging.DEBUG,
 	}
-	if args.pretty:
+	if args.pretty or args.output_xml:
 		logging_args['filename'] = '/tmp/signal_server.log'
 
 	logging.basicConfig(**logging_args)
+
+	if args.output_xml:
+		OutputXML()
+		return
 
 	if args.fake_jmri:
 		jmri_handle = jmri.FakeJMRI()

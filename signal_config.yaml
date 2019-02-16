@@ -2,8 +2,9 @@
 # Default required sensor state is "off" (inactive).
 
 fryton_main_sb:
-  upper_head_name: fryton_main_sb_hi
-  lower_head_name: fryton_main_sb_lo
+  upper_head_address: 2002
+  lower_head_address: 2003
+
   dispatch_control:
     memory_var: IMBA174
     direction: SB
@@ -37,8 +38,9 @@ fryton_main_sb:
 #    next_signal: green
 
 KaosA:
-  upper_head_name: KaosA_hi
-  lower_head_name: KaosA_lo
+  upper_head_address: 1234
+  lower_head_address: 5678
+
   normal_route:
     requirements:
     - turnout: NT325
@@ -47,8 +49,9 @@ KaosA:
     next_signal: green
 
 fryton_main_nb:
-  upper_head_name: fryton_main_nb_hi
-  lower_head_name: fryton_main_nb_lo
+  upper_head_address: 2001
+  lower_head_address: 2004
+
   normal_route:
     requirements:
     - turnout: NT175
@@ -63,8 +66,9 @@ fryton_main_nb:
     next_signal: green
 
 hallelujah_main_nb_paper:
-  upper_head_name: hallelujah_main_nb_paper_hi
-  lower_head_name: hallelujah_main_nb_paper_lo
+  upper_head_address: 2005
+  lower_head_address: 2006
+
   normal_route:
     requirements:
     - turnout: NT225
