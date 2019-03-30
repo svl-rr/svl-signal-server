@@ -65,7 +65,7 @@ class SignalMast(object):
                     else:
                         return SIGNAL_STOP, 'No dispatch clearance: %s' % value_parts[1]
 
-            return SIGNAL_STOP, 'Missing or invalid dispatch config'\
+            return SIGNAL_DARK, 'Missing or invalid dispatch config'
 
         generated_aspects = []
         for i, route in enumerate(self._routes):
@@ -111,6 +111,8 @@ class SingleHeadMast(SignalMast):
             return HEAD_YELLOW
         elif aspect == SIGNAL_RESTRICTING:
             return HEAD_FLASHING_RED
+        elif aspect == SIGNAL_DARK:
+            return HEAD_DARK
         return HEAD_RED
 
     def PutAspect(self, context, jmri_handle):
@@ -147,8 +149,10 @@ class DoubleHeadMast(SignalMast):
                     SIGNAL_DIVERGING_RESTRICTING: HEAD_FLASHING_RED,
                 }.get(aspect, HEAD_RED)
         else:
-            # Same as normal signal mast, but over red.
+            # Same as normal signal mast, but over red (except dark).
             upper_appearance = SingleHeadMast.GetAppearance(aspect)
+            if upper_appearance == HEAD_DARK:
+                lower_appearance = HEAD_DARK
         
         logging.debug('  Mast %s is %s (%s over %s): %s',
             self._mast_name, aspect, upper_appearance, lower_appearance, reason)

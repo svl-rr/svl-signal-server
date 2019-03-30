@@ -37,15 +37,57 @@ fryton_main_sb:
 #      state: thrown
 #    next_signal: green
 
+jericho_nb:
+  upper_head_address: 997
+  lower_head_address: 998
+
+  dispatch_control:
+    memory_var: IMBA300
+    direction: NB
+
+  normal_route:
+    requirements:
+    - sensor: LS207  # jericho nb
+    next_signal: KaosB
+
 KaosA:
   upper_head_address: 1234
   lower_head_address: 5678
+
+  dispatch_control:
+    memory_var: IMBA302
+    direction: SB
 
   normal_route:
     requirements:
     - turnout: NT325
       state: closed
     - sensor: LS204  # jericho sb
+    next_signal: green
+
+KaosB:
+  upper_head_address: 2009
+  lower_head_address: 2010
+
+  dispatch_control:
+    memory_var: IMBA330
+    direction: NB
+
+  normal_route:
+    requirements:
+    - sensor: LS207
+    - turnout: NT326
+      state: thrown
+    - turnout: NT325  # xover
+      state: closed
+    next_signal: green
+  diverging_route:
+    requirements:
+    - sensor: LS207
+    - turnout: NT326
+      state: closed  # "thru" route is modeled as "normal" turnout, even though it's diverging.
+    - turnout: NT325  # xover
+      state: closed
     next_signal: green
 
 fryton_main_nb:
@@ -68,6 +110,10 @@ fryton_main_nb:
 hallelujah_main_nb_paper:
   upper_head_address: 2005
   lower_head_address: 2006
+
+  dispatch_control:
+    memory_var: IMBA179
+    direction: NB
 
   normal_route:
     requirements:
