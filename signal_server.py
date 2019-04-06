@@ -23,10 +23,11 @@ SECONDS_BETWEEN_POLLS = 1.5
 
 
 class LayoutContext(object):
-	def __init__(self, turnout_state, sensor_state, memory_vars):
+	def __init__(self, turnout_state, sensor_state, memory_vars, masts):
 		self.turnout_state = turnout_state
 		self.sensor_state = sensor_state
 		self.memory_vars = memory_vars
+		self.masts = masts
 
 def _SignalHeadTree(address, name):
 	CLASS = 'jmri.implementation.configurexml.DccSignalHeadXml'
@@ -94,7 +95,8 @@ def Update(jmri_handle):
 		
 		context = LayoutContext(jmri_handle.GetCurrentTurnoutData(),
 			                    jmri_handle.GetCurrentSensorData(),
-			                    jmri_handle.GetMemoryVariables())
+			                    jmri_handle.GetMemoryVariables(),
+			                    signal_masts_by_name)
 
 		table = prettytable.PrettyTable()
 		table.field_names = ['Mast', 'Aspect', 'Appearance', 'Reason']

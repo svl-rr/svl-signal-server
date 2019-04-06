@@ -4,6 +4,22 @@ from signal_requirements import *
 import yaml
 
 
+def _GetNextMostPermissiveAspect(aspect):
+    if 'SIGNAL_APPROACH_CLEAR_' in aspect:
+        return SIGNAL_CLEAR
+    if 'SIGNAL_APPROACH_' in aspect:
+        return SIGNAL_ADVANCE_APPROACH
+
+    return {
+        SIGNAL_CLEAR: SIGNAL_CLEAR,
+        SIGNAL_ADVANCE_APPROACH: SIGNAL_CLEAR,
+        SIGNAL_APPROACH: SIGNAL_ADVANCE_APPROACH,
+        SIGNAL_RESTRICTING: SIGNAL_APPROACH,
+        SIGNAL_STOP: SIGNAL_APPROACH,
+        SIGNAL_DARK: SIGNAL_APPROACH,
+    }.get(aspect, SIGNAL_RESTRICTING)
+
+
 class SignalSummary(object):
     def __init__(self, aspect, appearance, reason):
         self.aspect = aspect.replace('SIGNAL_', '')
@@ -68,15 +84,19 @@ class SignalMast(object):
             return SIGNAL_DARK, 'Missing or invalid dispatch config'
 
         generated_aspects = []
+        stop_reasons = []
         for i, route in enumerate(self._routes):
             logging.debug('    Checking route %s', i)
             aspect_for_route, reason = route.GetBestAspect(context)
             if aspect_for_route != SIGNAL_STOP:
                 logging.debug('    Route %s was %s', i, aspect_for_route)
                 generated_aspects.append((aspect_for_route, reason))
+            else:
+                route_name = 'Diverging' if route._is_diverging else 'Normal'
+                stop_reasons.append('%s has %s' % (route_name, reason))
         if not generated_aspects:
             logging.debug('  Signal %s has no non-stop routes', self)
-            return SIGNAL_STOP, 'No non-STOP route'
+            return SIGNAL_STOP, ', '.join(stop_reasons)
         if len(generated_aspects) > 1:
             logging.error('  Signal %s has two non-stop routes! Using SIGNAL_STOP.', self)
             return SIGNAL_STOP, 'ERROR: Multiple routes possible'
@@ -179,12 +199,19 @@ class SignalRoute(object):
             if not req.IsSatisfied(context.turnout_state, context.sensor_state):
                 return SIGNAL_STOP, 'Unsatisfied: %s' % req
         logging.debug('  All Requirements satisfied')
-        # TODO: consider next signal.
-        aspect = SIGNAL_CLEAR
+        if self._next_mast_name == 'green':
+            next_mast_aspect = SIGNAL_CLEAR
+        else:
+            next_mast = context.masts.get(self._next_mast_name)
+            if next_mast:
+                next_mast_aspect, _ = next_mast.GetIntendedAspect(context)
+            else:
+                next_mast_aspect = SIGNAL_DARK
+        aspect = _GetNextMostPermissiveAspect(next_mast_aspect)
         if self._is_diverging:
             return (ConvertAspectToDivergingAspect(aspect),
-                    'Diverging to %s' % self._next_mast_name)
-        return aspect, 'Clear to %s' % self._next_mast_name
+                    'Diverging to %s [%s]' % (self._next_mast_name, next_mast_aspect))
+        return aspect, 'Clear to %s [%s]' % (self._next_mast_name, next_mast_aspect)
 
 
 class DispatchConfig(object):
