@@ -10,6 +10,16 @@ def _GetNextMostPermissiveAspect(aspect):
     if 'SIGNAL_APPROACH_' in aspect:
         return SIGNAL_ADVANCE_APPROACH
 
+    if 'SIGNAL_DIVERGING_' in aspect:
+        return {
+            SIGNAL_DIVERGING_CLEAR: SIGNAL_APPROACH_CLEAR_SIXTY,
+            SIGNAL_DIVERGING_CLEAR_LIMITED: SIGNAL_APPROACH_CLEAR_FIFTY,
+            SIGNAL_DIVERGING_ADVANCE_APPROACH: SIGNAL_APPROACH_CLEAR_FIFTY,
+            SIGNAL_DIVERGING_APPROACH: SIGNAL_APPROACH_DIVERGING,
+            SIGNAL_DIVERGING_RESTRICTING: SIGNAL_APPROACH_DIVERGING,
+        }.get(aspect, SIGNAL_RESTRICTING)
+
+    # Non-diverging aspects
     return {
         SIGNAL_CLEAR: SIGNAL_CLEAR,
         SIGNAL_ADVANCE_APPROACH: SIGNAL_CLEAR,
@@ -168,6 +178,12 @@ class DoubleHeadMast(SignalMast):
                     SIGNAL_DIVERGING_APPROACH: HEAD_YELLOW,
                     SIGNAL_DIVERGING_RESTRICTING: HEAD_FLASHING_RED,
                 }.get(aspect, HEAD_RED)
+        elif aspect == 'SIGNAL_APPROACH_CLEAR_SIXTY':
+            upper_appearance = HEAD_YELLOW
+            lower_appearance = HEAD_FLASHING_GREEN
+        elif aspect == 'SIGNAL_APPROACH_CLEAR_FIFTY':
+            upper_appearance = HEAD_YELLOW
+            lower_appearance = HEAD_GREEN
         else:
             # Same as normal signal mast, but over red (except dark).
             upper_appearance = SingleHeadMast.GetAppearance(aspect)

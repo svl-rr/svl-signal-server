@@ -75,15 +75,15 @@ KaosB:
 
   normal_route:
     requirements:
-    - sensor: LS207
+    - sensor: LS205  # kaos main
     - turnout: NT326
-      state: thrown
+      state: thrown # to kaos main
     - turnout: NT325  # xover
       state: closed
     next_signal: green
   diverging_route:
     requirements:
-    - sensor: LS207
+    - sensor: LS205  # kaos main
     - turnout: NT326
       state: closed  # "thru" route is modeled as "normal" turnout, even though it's diverging.
     - turnout: NT325  # xover
