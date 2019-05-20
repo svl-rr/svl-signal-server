@@ -128,3 +128,19 @@ hallelujah_main_nb_paper:
     - turnout: NT227
       state: thrown
     next_signal: green
+
+hallelujah_to_igo:
+  upper_head_address: 05.01.01.01.47.01.00.07
+  lower_head_address: 05.01.01.01.47.01.00.00
+
+  normal_route:
+    requirements:
+    - turnout: NT250
+      state: closed
+
+  diverging_route:
+    requirements:
+    - turnout: NT250
+      state: thrown
+
+  next_signal: green

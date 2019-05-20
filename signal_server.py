@@ -12,6 +12,7 @@ import traceback
 import time
 import prettytable
 from lxml import etree
+import socket
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -89,7 +90,48 @@ def OutputXML():
 
 	print etree.tostring(signalheads, pretty_print=True)
 
-def Update(jmri_handle):
+
+class OpenlcbLayoutHandle(object):
+	def __init__(self, openlcb_network):
+		self._network = openlcb_network
+		self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self._s.connect(('localhost', 12021))
+
+	def _RemoveJunk(self, eventid):
+		return (eventid
+			.replace(' ', '')
+			.replace(':', '')
+			.replace('.', ''))
+
+	def SetSignalHeadAppearance(self, mast_name, head_first_eventid, appearance):
+		event_offset = {
+			HEAD_GREEN: 0,
+			HEAD_YELLOW: 1,
+			HEAD_RED: 2,
+			HEAD_FLASHING_GREEN: 3,
+			HEAD_FLASHING_YELLOW: 4,
+			HEAD_FLASHING_RED: 5,
+			HEAD_DARK: 6,
+		}.get(appearance, 6)
+
+		first_eventid = self._RemoveJunk(head_first_eventid)
+		logging.info('  First head eventid: %s', first_eventid)
+		appearance_eventid = hex(int(first_eventid, base=16)+event_offset)
+		# strip 0x from the front
+		appearance_eventid = str(appearance_eventid)[2:]
+		# left pad with 0 until len matches original
+		appearance_eventid = appearance_eventid.rjust(len(first_eventid), '0')
+		logging.info('  Appearance eventid: %s (first+%s)', appearance_eventid, event_offset)
+
+		# TODO: get rid of this magic prefix for "send an eventid"
+		can_frame = ':X195B46ADN{};\n'.format(
+			self._RemoveJunk(appearance_eventid))
+		logging.info('  Sending LCC CAN packet %s', can_frame)
+		err = self._s.sendall(can_frame)
+		if err != None:
+			raise RuntimeError('Send to socket failed: %s' % err)
+
+def Update(jmri_handle, openlcb_handle):
 	try:
 		signal_masts_by_name = signal_config.LoadConfig(SIGNAL_CONFIG_FILE)
 		
@@ -103,7 +145,10 @@ def Update(jmri_handle):
 
 		for mast in signal_masts_by_name.itervalues():
 			logging.info('Configuring signal mast %s', mast)
-			summary = mast.PutAspect(context, jmri_handle)
+			if mast.PostToOpenlcb():
+				summary = mast.PutAspect(context, openlcb_handle)
+			else:
+				summary = mast.PutAspect(context, jmri_handle)
 			table.add_row([str(mast), summary.aspect, summary.appearance, summary.reason])
 
 		print table
@@ -140,10 +185,16 @@ def main():
 	else:
 		jmri_handle = jmri.JMRI(SVL_JMRI_SERVER_HOST)
 
+	# openlcb_network = openlcb_python.tcpolcblink.TcpToOlcbLink()
+	# openlcb_network.host = 'localhost'
+	# openlcb_network.port = 12021
+
+	openlcb_handle = OpenlcbLayoutHandle(None)
+
 	while True:
 		if args.pretty:
 			print(chr(27) + "[2J")
-		Update(jmri_handle)
+		Update(jmri_handle, openlcb_handle)
 		if args.pretty:
 			print 'Last Update: ' + time.ctime(time.time())
 		time.sleep(SECONDS_BETWEEN_POLLS)

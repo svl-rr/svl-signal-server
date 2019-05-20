@@ -51,7 +51,7 @@ class SignalMast(object):
     def __init__(self, mast_name, dispatch_config=None):
         """Initializer.
 
-        mast_name: str, JMRI signal mast name being described
+        mast_name: str, signal mast name being described
         dispatch_config: DispatchConfig or None
         """
         self._mast_name = mast_name
@@ -64,6 +64,9 @@ class SignalMast(object):
 
     def __str__(self):
         return self._mast_name
+
+    def PostToOpenlcb(self):
+        return False
 
     def GetIntendedAspect(self, context):
         """Returns a SIGNAL_* instance; context is a LayoutContext object."""
@@ -112,15 +115,15 @@ class SignalMast(object):
             return SIGNAL_STOP, 'ERROR: Multiple routes possible'
         return generated_aspects[0]
 
-    def PutAspect(self, context, jmri_handle):
-        """Enacts the will of this SignalMast in JMRI."""
+    def PutAspect(self, context, layout_handle):
+        """Enacts the will of this SignalMast."""
         raise NotImplementedError
 
         aspect, reason = self.GetIntendedAspect(context)
         logging.debug('  Signal %s at %s: %s',
             self._mast_name, aspect, reason)
-        jmri_handle.SetSignalMastAspect(
-            self._mast_name, aspect)
+        layout_handle.SetSignalMastAspect(
+            self._mast_name, 'unused_address', aspect)
         return SignalSummary(aspect, 'None (JMRI Mast)', reason)
 
 
@@ -128,6 +131,10 @@ class SingleHeadMast(SignalMast):
     def __init__(self, mast_name, head_address, dispatch_config=None):
         super(SingleHeadMast, self).__init__(mast_name, dispatch_config)
         self._head_address = head_address
+
+    def PostToOpenlcb(self):
+        # Check if head address looks like an event id.
+        return len(str(self._head_address)) > 7
 
     @classmethod
     def GetAppearance(cls, aspect):
@@ -145,12 +152,12 @@ class SingleHeadMast(SignalMast):
             return HEAD_DARK
         return HEAD_RED
 
-    def PutAspect(self, context, jmri_handle):
+    def PutAspect(self, context, layout_handle):
         aspect, reason = self.GetIntendedAspect(context)
         appearance = self.GetAppearance(aspect)
         logging.debug('  %s mapped aspect %s to %s [%s]',
             self._mast_name, aspect, appearance, reason)
-        jmri_handle.SetSignalHeadAppearance(self._mast_name, appearance)
+        layout_handle.SetSignalHeadAppearance(self._mast_name, self._head_address, appearance)
         return SignalSummary(
             aspect,
             SignalSummary.PrettyAppearance(appearance),
@@ -158,12 +165,23 @@ class SingleHeadMast(SignalMast):
 
 
 class DoubleHeadMast(SignalMast):
-    def __init__(self, mast_name, upper_head_address, lower_head_address, dispatch_config=None):
+    def __init__(
+            self, mast_name,
+            upper_head_address, lower_head_address,
+            dispatch_config=None):
         super(DoubleHeadMast, self).__init__(mast_name, dispatch_config)
         self._upper_head_address = upper_head_address
         self._lower_head_address = lower_head_address
 
-    def PutAspect(self, context, jmri_handle):
+    def PostToOpenlcb(self):
+        # Check if upper head address looks like an event id.
+        upper_head_looks_eventy = len(str(self._upper_head_address)) > 7
+        lower_head_looks_eventy = len(str(self._lower_head_address)) > 7
+        if upper_head_looks_eventy != lower_head_looks_eventy:
+            raise AttributeError('In %s: upper head and lower head must neither or both be event IDs' % self._mast_name)
+        return upper_head_looks_eventy 
+
+    def PutAspect(self, context, layout_handle):
         aspect, reason = self.GetIntendedAspect(context)
         upper_appearance = lower_appearance = HEAD_RED
         if 'DIVERGING' in aspect:
@@ -192,8 +210,14 @@ class DoubleHeadMast(SignalMast):
         
         logging.debug('  Mast %s is %s (%s over %s): %s',
             self._mast_name, aspect, upper_appearance, lower_appearance, reason)
-        jmri_handle.SetSignalHeadAppearance(self._mast_name + '_upper', upper_appearance)
-        jmri_handle.SetSignalHeadAppearance(self._mast_name + '_lower', lower_appearance)
+        layout_handle.SetSignalHeadAppearance(
+            self._mast_name + '_upper',
+            self._upper_head_address,
+            upper_appearance)
+        layout_handle.SetSignalHeadAppearance(
+            self._mast_name + '_lower', 
+            self._lower_head_address, 
+            lower_appearance)
         return SignalSummary(
             aspect,
             SignalSummary.PrettyAppearance(upper_appearance, lower_appearance),
@@ -308,9 +332,9 @@ def LoadConfig(config_file_path):
             upper = configuration['upper_head_address']
             lower = configuration['lower_head_address']
             logging.info('  Mast %s configured with heads %s + %s', mast_name, upper, lower)
-            signal = DoubleHeadMast(mast_name, upper, lower, dispatch_config)
+            signal = DoubleHeadMast(mast_name, upper, lower, dispatch_config=dispatch_config)
         else:
-            signal = SignalMast(mast_name, dispatch_config)
+            raise AttributeError('Signal must define head_address or {upper,lower}_head_address')
 
         if 'normal_route' not in configuration:
             raise AttributeError('Signal must have a normal_route')

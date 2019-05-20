@@ -109,7 +109,7 @@ class JMRI(object):
 		logging.debug('Fetched %d memory values', len(memory_states))
 		return memory_states
 
-	def SetSignalHeadAppearance(self, head_name, appearance):
+	def SetSignalHeadAppearance(self, head_name, unused_address, appearance):
 		jmri_number = HEAD_ENUM_TO_JMRI_NUMBER.get(appearance, -1)
 		if jmri_number == -1:
 			raise RuntimeError('Appearance %s invalid' % appearance)
@@ -126,7 +126,7 @@ class JMRI(object):
 		logging.debug('Posting signal head change to %s: %s', url, json_data)
 		self._PostToJMRI(url, json_data)
 
-	def SetSignalMastAspect(self, mast_name, aspect):
+	def SetSignalMastAspect(self, mast_name, unused_address, aspect):
 		"""Sets mast_name to an aspect.
 		   mast_name matches a signal mast name in JMRI.
 		   aspect is a SIGNAL_* enum value.
