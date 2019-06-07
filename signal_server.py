@@ -94,8 +94,8 @@ def OutputXML():
 class OpenlcbLayoutHandle(object):
 	def __init__(self, openlcb_network):
 		self._network = openlcb_network
-		self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self._s.connect(('localhost', 12021))
+		self._s = None
+		self._cache = {}
 
 	def _RemoveJunk(self, eventid):
 		return (eventid
@@ -104,6 +104,9 @@ class OpenlcbLayoutHandle(object):
 			.replace('.', ''))
 
 	def SetSignalHeadAppearance(self, mast_name, head_first_eventid, appearance):
+		if self._cache.get(mast_name) == appearance:
+			logging.info('  Aspect of %s is already %s', mast_name, appearance)
+			return
 		event_offset = {
 			HEAD_GREEN: 0,
 			HEAD_YELLOW: 1,
@@ -115,10 +118,10 @@ class OpenlcbLayoutHandle(object):
 		}.get(appearance, 6)
 
 		first_eventid = self._RemoveJunk(head_first_eventid)
-		logging.info('  First head eventid: %s', first_eventid)
+		logging.info('  Head\'s first EventId: %s', first_eventid)
 		appearance_eventid = hex(int(first_eventid, base=16)+event_offset)
 		# strip 0x from the front
-		appearance_eventid = str(appearance_eventid)[2:]
+		appearance_eventid = str(appearance_eventid)[2:].upper()
 		# left pad with 0 until len matches original
 		appearance_eventid = appearance_eventid.rjust(len(first_eventid), '0')
 		logging.info('  Appearance eventid: %s (first+%s)', appearance_eventid, event_offset)
@@ -126,10 +129,26 @@ class OpenlcbLayoutHandle(object):
 		# TODO: get rid of this magic prefix for "send an eventid"
 		can_frame = ':X195B46ADN{};\n'.format(
 			self._RemoveJunk(appearance_eventid))
-		logging.info('  Sending LCC CAN packet %s', can_frame)
-		err = self._s.sendall(can_frame)
-		if err != None:
+		self._Send(can_frame)
+		self._cache[mast_name] = appearance
+
+	def _Send(self, frame):
+		logging.info('  Sending LCC CAN packet %s', frame)
+		if not self._s:
+			self._InitSocket()
+		try:
+			err = self._s.sendall(frame)
+		except Exception as e:
+			err = e
+		if err is not None:
+			del self._s
 			raise RuntimeError('Send to socket failed: %s' % err)
+
+	def _InitSocket(self):
+		del self._s
+		self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self._s.connect(('localhost', 12021))
+
 
 def Update(jmri_handle, openlcb_handle):
 	try:

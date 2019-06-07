@@ -83,8 +83,11 @@ class JMRI(object):
 		sensor_data_json = self._GetJsonData('/json/sensors')
 		sensor_states = {}
 
+		logging.info(sensor_data_json)
+
 		for sensor in sensor_data_json:
 			name = sensor['data']['name']
+			userName = sensor['data'].get('userName')
 			state = sensor['data']['state']
 			if state == 2:
 				sensor_state = SENSOR_ACTIVE
@@ -92,9 +95,11 @@ class JMRI(object):
 				sensor_state = SENSOR_INACTIVE
 			else:
 				logging.debug(
-					'Sensor %s had unknown json state value %s', name, state)
+					'Sensor %s (%s) had unknown json state value %s', name, userName, state)
 				sensor_state = SENSOR_UNKNOWN
 			sensor_states[name] = sensor_state
+			if userName:
+				sensor_states[userName] = sensor_state
 		logging.debug('Fetched data for %d sensors', len(sensor_states))
 		return sensor_states
 

@@ -119,7 +119,8 @@ hallelujah_main_nb_paper:
     requirements:
     - turnout: NT225
       state: closed
-    next_signal: green
+    - sensor: Hallelujah
+    next_signal: hallelujah_to_igo
 
   diverging_route:
     requirements:
@@ -129,18 +130,43 @@ hallelujah_main_nb_paper:
       state: thrown
     next_signal: green
 
-hallelujah_to_igo:
-  upper_head_address: 05.01.01.01.47.01.00.07
-  lower_head_address: 05.01.01.01.47.01.00.00
+igo_to_hallelujah_sb_main:
+  head_address: 05.01.01.01.47.02.00.00
+
+  normal_route:
+    requirements:
+    - turnout: NT250
+      state: thrown
+    - sensor: Hallelujah
+
+igo_to_hallelujah_nb_main:
+  head_address: 05.01.01.01.47.02.00.07
 
   normal_route:
     requirements:
     - turnout: NT250
       state: closed
+    - sensor: Hallelujah
+
+  next_signal: not_yet_configured
+
+hallelujah_to_igo:
+  head_address: 05.01.01.01.47.02.00.0E
+
+  dispatch_control:
+    memory_var: IMTA250A
+    direction: NB
+
+  normal_route:
+    requirements:
+    - turnout: NT250
+      state: closed
+    - sensor: Igo NB
 
   diverging_route:
     requirements:
     - turnout: NT250
       state: thrown
+    - sensor: Igo SB
 
-  next_signal: green
+  next_signal: move_this_attr_to_route_configs
