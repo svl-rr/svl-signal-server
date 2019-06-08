@@ -20,6 +20,10 @@ SIGNAL_CONFIG_FILE = os.path.join(DIR, 'signal_config.yaml')
 SVL_JMRI_SERVER_HOST = 'http://svl-jmri.local:12080'
 SECONDS_BETWEEN_POLLS = 1.5
 
+# This could be smarter if we listened to requests
+# from freshly-booted nodes.
+SECONDS_BETWEEN_FULL_LCC_CACHE_BROADCAST = None
+
 # TODO: JMRI handle should be passed in to SignalMast __init__.
 
 
@@ -95,7 +99,9 @@ class OpenlcbLayoutHandle(object):
 	def __init__(self, openlcb_network):
 		self._network = openlcb_network
 		self._s = None
+		# {mast_name -> (first_eventid, appearance)}
 		self._cache = {}
+		self._last_broadcast_time = time.time()
 
 	def _RemoveJunk(self, eventid):
 		return (eventid
@@ -103,10 +109,14 @@ class OpenlcbLayoutHandle(object):
 			.replace(':', '')
 			.replace('.', ''))
 
-	def SetSignalHeadAppearance(self, mast_name, head_first_eventid, appearance):
-		if self._cache.get(mast_name) == appearance:
-			logging.info('  Aspect of %s is already %s', mast_name, appearance)
-			return
+	def SetSignalHeadAppearance(self, mast_name, head_first_eventid, appearance, ignore_cache=False):
+		if not ignore_cache:
+			self._MaybeBroadcastCache()
+
+		if not ignore_cache:
+			if self._cache.get(mast_name) == (head_first_eventid, appearance):
+				logging.info('  Aspect of %s is already %s', mast_name, appearance)
+				return
 		event_offset = {
 			HEAD_GREEN: 0,
 			HEAD_YELLOW: 1,
@@ -130,11 +140,14 @@ class OpenlcbLayoutHandle(object):
 		can_frame = ':X195B46ADN{};\n'.format(
 			self._RemoveJunk(appearance_eventid))
 		self._Send(can_frame)
-		self._cache[mast_name] = appearance
+		self._cache[mast_name] = (head_first_eventid, appearance)
 
 	def _Send(self, frame):
 		logging.info('  Sending LCC CAN packet %s', frame)
-		if not self._s:
+		try:
+			if not self._s:
+				self._InitSocket()
+		except NameError:
 			self._InitSocket()
 		try:
 			err = self._s.sendall(frame)
@@ -149,6 +162,19 @@ class OpenlcbLayoutHandle(object):
 		self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self._s.connect(('localhost', 12021))
 
+	def _MaybeBroadcastCache(self):
+		if not SECONDS_BETWEEN_FULL_LCC_CACHE_BROADCAST:
+			return
+		now = time.time()
+		seconds_since_last_broadcast = now - self._last_broadcast_time
+		if seconds_since_last_broadcast > SECONDS_BETWEEN_FULL_LCC_CACHE_BROADCAST:
+			logging.info('Time to rebroadcast LCC cache')
+			for mast_name, (first_eventid, appearance) in self._cache.iteritems():
+				self.SetSignalHeadAppearance(mast_name, first_eventid, appearance, ignore_cache=True)
+			self._last_broadcast_time = now
+		else:
+			logging.info('Only been %s seconds since last broadcast', seconds_since_last_broadcast)
+
 
 def Update(jmri_handle, openlcb_handle):
 	try:
@@ -162,7 +188,8 @@ def Update(jmri_handle, openlcb_handle):
 		table = prettytable.PrettyTable()
 		table.field_names = ['Mast', 'Aspect', 'Appearance', 'Reason']
 
-		for mast in signal_masts_by_name.itervalues():
+		for mast_name in sorted(signal_masts_by_name.keys(), key=lambda s: s.lower()):
+			mast = signal_masts_by_name[mast_name]
 			logging.info('Configuring signal mast %s', mast)
 			if mast.PostToOpenlcb():
 				summary = mast.PutAspect(context, openlcb_handle)

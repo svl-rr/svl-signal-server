@@ -12,16 +12,16 @@ fryton_main_sb:
     requirements:
     - turnout: NT176 # greeley -> fryton switch
       state: thrown  # we actually want it closed, but the switch is reversed.
-    - sensor: LS174  # fryton main
-    - sensor: LS176  # fryton siding switch (greeley side)
-    next_signal: ebbetts_pass_sb_from_fryton_main
+    - sensor: FrytonMain  # fryton main
+    - sensor: GreeleyFrytonMainSwitch  # fryton siding switch (greeley side)
+    next_signal: green
   diverging_route:
     requirements:
     - turnout: NT176 # greeley -> fryton switch
       state: closed  # this is actually thrown; switch is reversed for some reason :(
-    - sensor: LS176  # fryton siding switch (greeley side)
-    - sensor: LS177  # fryton siding
-    next_signal: ebbetts_pass_sb_from_fryton_siding
+    - sensor: GreeleyFrytonMainSwitch  # fryton siding switch (greeley side)
+    - sensor: FrytonSiding  # fryton siding
+    next_signal: green
 
 #ebbetts_pass_nb_from_fryton_main:
 #  normal_route:
@@ -47,7 +47,7 @@ jericho_nb:
 
   normal_route:
     requirements:
-    - sensor: LS207  # jericho nb
+    - sensor: JerichoNB
     next_signal: KaosB
 
 KaosA:
@@ -62,7 +62,7 @@ KaosA:
     requirements:
     - turnout: NT325
       state: closed
-    - sensor: LS204  # jericho sb
+    - sensor: JerichoSB
     next_signal: green
 
 KaosB:
@@ -75,7 +75,7 @@ KaosB:
 
   normal_route:
     requirements:
-    - sensor: LS205  # kaos main
+    - sensor: KaosMain  # kaos main
     - turnout: NT326
       state: thrown # to kaos main
     - turnout: NT325  # xover
@@ -83,7 +83,7 @@ KaosB:
     next_signal: green
   diverging_route:
     requirements:
-    - sensor: LS205  # kaos main
+    - sensor: KaosMain  # kaos main
     - turnout: NT326
       state: closed  # "thru" route is modeled as "normal" turnout, even though it's diverging.
     - turnout: NT325  # xover
@@ -98,13 +98,13 @@ fryton_main_nb:
     requirements:
     - turnout: NT175
       state: closed
-    - sensor: LS174  # fryton main
+    - sensor: FrytonMain
     next_signal: green
   diverging_route:
     requirements:
     - turnout: NT175
       state: thrown
-    - sensor: LS177  # fryton siding
+    - sensor: FrytonSiding
     next_signal: green
 
 hallelujah_main_nb_paper:
@@ -138,6 +138,7 @@ igo_to_hallelujah_sb_main:
     - turnout: NT250
       state: thrown
     - sensor: Hallelujah
+    next_signal: hallelujah_to_greeley
 
 igo_to_hallelujah_nb_main:
   head_address: 05.01.01.01.47.02.00.07
@@ -147,8 +148,29 @@ igo_to_hallelujah_nb_main:
     - turnout: NT250
       state: closed
     - sensor: Hallelujah
+    next_signal: hallelujah_to_greeley
 
-  next_signal: not_yet_configured
+igo_to_jacksonville_nb:
+  head_address: None
+  normal_route:
+    requirements:
+    - sensor: Jacksonville NB
+    next_signal: jericho_nb
+
+igo_to_jacksonville_sb:
+  head_address: None
+  normal_route:
+    requirements:
+    - sensor: Jacksonville SB
+    next_signal: green
+
+hallelujah_to_greeley:
+  head_address: None
+  normal_route:
+    requirements:
+    - sensor: Greeley
+    - sensor: Greeley_HallelujahSide
+    next_signal: fryton_main_sb
 
 hallelujah_to_igo:
   head_address: 05.01.01.01.47.02.00.0E
@@ -162,11 +184,11 @@ hallelujah_to_igo:
     - turnout: NT250
       state: closed
     - sensor: Igo NB
+    next_signal: green
 
   diverging_route:
     requirements:
     - turnout: NT250
       state: thrown
     - sensor: Igo SB
-
-  next_signal: move_this_attr_to_route_configs
+    next_signal: green

@@ -5,6 +5,7 @@ import yaml
 
 
 def _GetNextMostPermissiveAspect(aspect):
+    logging.info('Computing next most permissive aspect for %s', aspect)
     if 'SIGNAL_APPROACH_CLEAR_' in aspect:
         return SIGNAL_CLEAR
     if 'SIGNAL_APPROACH_' in aspect:
@@ -70,16 +71,16 @@ class SignalMast(object):
 
     def GetIntendedAspect(self, context):
         """Returns a SIGNAL_* instance; context is a LayoutContext object."""
-        logging.debug('  Determining aspect for signal %s', self)
+        logging.info('  Determining aspect for signal %s', self)
         reason = 'Unknown'
 
         if context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME).lower() == 'yes':
             if self._dispatch_config:
-                logging.debug('  Can be configured by dispatch var %s in direction %s',
+                logging.info('  Can be configured by dispatch var %s in direction %s',
                               self._dispatch_config.memory_var_name, self._dispatch_config.direction)
                 var_value = context.memory_vars.get(self._dispatch_config.memory_var_name)
                 if var_value:
-                    logging.debug('  JMRI has a value for this variable: %s', var_value)
+                    logging.info('  JMRI has a value for this variable: %s', var_value)
                     value_parts = var_value.split(':')
                     if len(value_parts) != 3:
                         return SIGNAL_STOP, 'Invalid memory contents: %s' % var_value
@@ -99,16 +100,16 @@ class SignalMast(object):
         generated_aspects = []
         stop_reasons = []
         for i, route in enumerate(self._routes):
-            logging.debug('    Checking route %s', i)
+            logging.info('    Checking route %s', i)
             aspect_for_route, reason = route.GetBestAspect(context)
             if aspect_for_route != SIGNAL_STOP:
-                logging.debug('    Route %s was %s', i, aspect_for_route)
+                logging.info('    Route %s was %s', i, aspect_for_route)
                 generated_aspects.append((aspect_for_route, reason))
             else:
                 route_name = 'Diverging' if route._is_diverging else 'Normal'
                 stop_reasons.append('%s has %s' % (route_name, reason))
         if not generated_aspects:
-            logging.debug('  Signal %s has no non-stop routes', self)
+            logging.info('  Signal %s has no non-stop routes', self)
             return SIGNAL_STOP, ', '.join(stop_reasons)
         if len(generated_aspects) > 1:
             logging.error('  Signal %s has two non-stop routes! Using SIGNAL_STOP.', self)
@@ -120,7 +121,7 @@ class SignalMast(object):
         raise NotImplementedError
 
         aspect, reason = self.GetIntendedAspect(context)
-        logging.debug('  Signal %s at %s: %s',
+        logging.info('  Signal %s at %s: %s',
             self._mast_name, aspect, reason)
         layout_handle.SetSignalMastAspect(
             self._mast_name, 'unused_address', aspect)
@@ -138,6 +139,15 @@ class SingleHeadMast(SignalMast):
 
     @classmethod
     def GetAppearance(cls, aspect):
+        # A 1-head mast on a diverging route is not great.
+        if '_DIVERGING_' in aspect:
+            old_aspect = aspect
+            aspect = aspect.replace('_DIVERGING', '').replace('_CLEAR_LIMITED', '_CLEAR_FIFTY')
+            logging.info('Hackily replaced 1-head diverging aspect %s with simple aspect %s',
+                         old_aspect, aspect)
+            if aspect == SIGNAL_CLEAR:
+                # At least show a flashing green when diverging.
+                aspect = SIGNAL_APPROACH_CLEAR_FIFTY
         if aspect == SIGNAL_CLEAR:
             return HEAD_GREEN
         elif 'APPROACH_CLEAR' in aspect:
@@ -150,12 +160,14 @@ class SingleHeadMast(SignalMast):
             return HEAD_FLASHING_RED
         elif aspect == SIGNAL_DARK:
             return HEAD_DARK
+
+
         return HEAD_RED
 
     def PutAspect(self, context, layout_handle):
         aspect, reason = self.GetIntendedAspect(context)
         appearance = self.GetAppearance(aspect)
-        logging.debug('  %s mapped aspect %s to %s [%s]',
+        logging.info('  %s mapped aspect %s to %s [%s]',
             self._mast_name, aspect, appearance, reason)
         layout_handle.SetSignalHeadAppearance(self._mast_name, self._head_address, appearance)
         return SignalSummary(
@@ -208,7 +220,7 @@ class DoubleHeadMast(SignalMast):
             if upper_appearance == HEAD_DARK:
                 lower_appearance = HEAD_DARK
         
-        logging.debug('  Mast %s is %s (%s over %s): %s',
+        logging.info('  Mast %s is %s (%s over %s): %s',
             self._mast_name, aspect, upper_appearance, lower_appearance, reason)
         layout_handle.SetSignalHeadAppearance(
             self._mast_name + '_upper',
@@ -238,20 +250,24 @@ class SignalRoute(object):
         for i, req in enumerate(self._requirements):
             if not req.IsSatisfied(context.turnout_state, context.sensor_state):
                 return SIGNAL_STOP, 'Unsatisfied: %s' % req
-        logging.debug('  All Requirements satisfied')
+        logging.info('  All Requirements satisfied')
         if self._next_mast_name == 'green':
             next_mast_aspect = SIGNAL_CLEAR
+            logging.info('Next mast is hard-coded as CLEAR')
         else:
             next_mast = context.masts.get(self._next_mast_name)
             if next_mast:
                 next_mast_aspect, _ = next_mast.GetIntendedAspect(context)
+                logging.info('Next mast is %s, which is %s', self._next_mast_name, next_mast_aspect)
             else:
                 next_mast_aspect = SIGNAL_DARK
+                logging.warning('Next mast %s is unknown; assuming dark', self._next_mast_name)
+        next_mast_aspect_pretty = next_mast_aspect.replace('SIGNAL_', '')
         aspect = _GetNextMostPermissiveAspect(next_mast_aspect)
         if self._is_diverging:
             return (ConvertAspectToDivergingAspect(aspect),
-                    'Diverging to %s [%s]' % (self._next_mast_name, next_mast_aspect))
-        return aspect, 'Clear to %s [%s]' % (self._next_mast_name, next_mast_aspect)
+                    'Diverging to %s, which is %s' % (self._next_mast_name, next_mast_aspect_pretty))
+        return aspect, 'Clear to %s, which is %s' % (self._next_mast_name, next_mast_aspect_pretty)
 
 
 class DispatchConfig(object):
