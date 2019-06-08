@@ -63,7 +63,7 @@ KaosA:
     - turnout: NT325
       state: closed
     - sensor: JerichoSB
-    next_signal: green
+    next_signal: green # jericho_to_jacksonville_sb
 
 KaosB:
   upper_head_address: 2009
@@ -75,7 +75,7 @@ KaosB:
 
   normal_route:
     requirements:
-    - sensor: KaosMain  # kaos main
+    - sensor: KaosMain
     - turnout: NT326
       state: thrown # to kaos main
     - turnout: NT325  # xover
@@ -83,7 +83,7 @@ KaosB:
     next_signal: green
   diverging_route:
     requirements:
-    - sensor: KaosMain  # kaos main
+    - sensor: KaosMain
     - turnout: NT326
       state: closed  # "thru" route is modeled as "normal" turnout, even though it's diverging.
     - turnout: NT325  # xover
@@ -184,11 +184,11 @@ hallelujah_to_igo:
     - turnout: NT250
       state: closed
     - sensor: Igo NB
-    next_signal: green
+    next_signal: igo_to_jacksonville_nb
 
   diverging_route:
     requirements:
     - turnout: NT250
       state: thrown
     - sensor: Igo SB
-    next_signal: green
+    next_signal: igo_to_jacksonville_sb
