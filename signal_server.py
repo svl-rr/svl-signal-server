@@ -13,6 +13,7 @@ import time
 import prettytable
 from lxml import etree
 import socket
+from threading import Thread, RLock
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -99,9 +100,14 @@ class OpenlcbLayoutHandle(object):
 	def __init__(self, openlcb_network):
 		self._network = openlcb_network
 		self._s = None
+		self._s_lock = RLock()
 		# {mast_name -> (first_eventid, appearance)}
 		self._cache = {}
 		self._last_broadcast_time = time.time()
+		self._recv_thread = Thread(target=self._CheckForIncomingLCCData)
+		self._recv_thread.daemon = True
+		self._recv_thread.start()
+		self._rcv_data = ''
 
 	def _RemoveJunk(self, eventid):
 		return (eventid
@@ -109,13 +115,84 @@ class OpenlcbLayoutHandle(object):
 			.replace(':', '')
 			.replace('.', ''))
 
+	def _CheckForIncomingLCCData(self):
+		while True:
+			with self._s_lock:
+				try:
+					logging.debug("Checking for LCC data...")
+					data = self._s.recv(4096)
+					logging.debug('got data: "%s"' % data)
+					self._rcv_data += data
+				except socket.timeout:
+					pass
+				except:
+					logging.exception('LCC data check failed')
+
+
+				while True:
+					self._rcv_data = self._rcv_data.lstrip()
+					logging.debug('In recv queue: "%s"', self._rcv_data)
+					semicolon_idx = self._rcv_data.find(';')
+					if semicolon_idx == -1:
+						logging.debug('Recv buffer does not contain an end of frame')
+						break
+					if not self._rcv_data.startswith(':X'):
+						# chop off invalid prefix data
+						self._rcv_data = self._rcv_data[semicolon_idx+1:]
+						continue
+					packet = self._rcv_data[:semicolon_idx]
+					self._ProcessCANPacket(packet)
+					self._rcv_data = self._rcv_data[semicolon_idx+1:]
+
+			time.sleep(1)
+
+	def _ProcessCANPacket(self, packet):
+		logging.debug('processing packet: "%s"', packet)
+		# Chop off ":X" and ";" garbage.
+		packet = packet[2:-1]
+		logging.debug('Full packet: "%s"', packet)
+		packet_parts = packet.split('N')
+		if len(packet_parts) != 2:
+			logging.error("Ignoring invalid packet")
+			return
+		header, data = packet_parts
+		logging.debug('Header: "%s" Data: "%s"', header, data)
+		header_bin = bin(int(header, 16))[2:]
+		logging.debug('Header binary: %s', header_bin)
+		logging.debug('Header hex: %s', hex(int(header_bin, 2)))
+		if len(header_bin) != 29:
+			logging.error('Ignoring invalid-len header')
+			return
+		if header_bin[1] != '1':
+			logging.debug('Ignoring non-openlcb frame')
+			return
+		hdr_frame_type = int(header_bin[2:5], 2)
+		logging.debug('Frame type: %s', hdr_frame_type)
+		if hdr_frame_type in range(2, 5):
+			logging.debug('Ignoring datagram frame (type %s)', hdr_frame_type)
+			return
+		elif hdr_frame_type in [0, 6]:
+			logging.debug('Ignoring reserved frame (type %s)', hdr_frame_type)
+			return
+		elif hdr_frame_type == 7:
+			logging.debug('Ignoring stream frame (type %s)', hdr_frame_type)
+			return
+		elif hdr_frame_type != 1:
+			logging.debug('Ignoring unknown frame (type %s)', hdr_frame_type)
+			return
+		can_mti_bin = header_bin[5:17]
+		logging.debug("binary mti: %s", can_mti_bin)
+		can_mti = hex(int(header_bin[5:17], 2))
+		logging.info('Processing incoming packet with MTI: %s', can_mti)
+		if can_mti not in ['0x100', '0x101']:
+			return
+		logging.info('Broadcasting cache!')
+		self._BroadcastCache()
+
 	def SetSignalHeadAppearance(self, mast_name, head_first_eventid, appearance, ignore_cache=False):
 		if not ignore_cache:
-			self._MaybeBroadcastCache()
-
-		if not ignore_cache:
 			if self._cache.get(mast_name) == (head_first_eventid, appearance):
-				logging.info('  Aspect of %s is already %s', mast_name, appearance)
+				logging.debug('  Aspect of %s is already %s', mast_name, appearance)
 				return
 		event_offset = {
 			HEAD_GREEN: 0,
@@ -128,13 +205,13 @@ class OpenlcbLayoutHandle(object):
 		}.get(appearance, 6)
 
 		first_eventid = self._RemoveJunk(head_first_eventid)
-		logging.info('  Head\'s first EventId: %s', first_eventid)
+		logging.debug('  Head\'s first EventId: %s', first_eventid)
 		appearance_eventid = hex(int(first_eventid, base=16)+event_offset)
 		# strip 0x from the front
 		appearance_eventid = str(appearance_eventid)[2:].upper()
 		# left pad with 0 until len matches original
 		appearance_eventid = appearance_eventid.rjust(len(first_eventid), '0')
-		logging.info('  Appearance eventid: %s (first+%s)', appearance_eventid, event_offset)
+		logging.debug('  Appearance eventid: %s (first+%s)', appearance_eventid, event_offset)
 
 		# TODO: get rid of this magic prefix for "send an eventid"
 		can_frame = ':X195B46ADN{};\n'.format(
@@ -143,37 +220,31 @@ class OpenlcbLayoutHandle(object):
 		self._cache[mast_name] = (head_first_eventid, appearance)
 
 	def _Send(self, frame):
-		logging.info('  Sending LCC CAN packet %s', frame)
-		try:
-			if not self._s:
+		with self._s_lock:
+			logging.info('  Sending LCC CAN packet %s', frame)
+			try:
+				if not self._s:
+					self._InitSocket()
+			except:
 				self._InitSocket()
-		except NameError:
-			self._InitSocket()
-		try:
-			err = self._s.sendall(frame)
-		except Exception as e:
-			err = e
-		if err is not None:
-			del self._s
-			raise RuntimeError('Send to socket failed: %s' % err)
+			try:
+				err = self._s.sendall(frame)
+			except Exception as e:
+				err = e
+			if err is not None:
+				del self._s
+				raise RuntimeError('Send to socket failed: %s' % err)
 
 	def _InitSocket(self):
 		del self._s
 		self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self._s.settimeout(1.0)
 		self._s.connect(('localhost', 12021))
 
-	def _MaybeBroadcastCache(self):
-		if not SECONDS_BETWEEN_FULL_LCC_CACHE_BROADCAST:
-			return
-		now = time.time()
-		seconds_since_last_broadcast = now - self._last_broadcast_time
-		if seconds_since_last_broadcast > SECONDS_BETWEEN_FULL_LCC_CACHE_BROADCAST:
-			logging.info('Time to rebroadcast LCC cache')
-			for mast_name, (first_eventid, appearance) in self._cache.iteritems():
-				self.SetSignalHeadAppearance(mast_name, first_eventid, appearance, ignore_cache=True)
-			self._last_broadcast_time = now
-		else:
-			logging.info('Only been %s seconds since last broadcast', seconds_since_last_broadcast)
+	def _BroadcastCache(self):
+		logging.info('Time to rebroadcast LCC cache')
+		for mast_name, (first_eventid, appearance) in self._cache.iteritems():
+			self.SetSignalHeadAppearance(mast_name, first_eventid, appearance, ignore_cache=True)
 
 
 def Update(jmri_handle, openlcb_handle):
@@ -190,7 +261,7 @@ def Update(jmri_handle, openlcb_handle):
 
 		for mast_name in sorted(signal_masts_by_name.keys(), key=lambda s: s.lower()):
 			mast = signal_masts_by_name[mast_name]
-			logging.info('Configuring signal mast %s', mast)
+			logging.debug('Configuring signal mast %s', mast)
 			if mast.PostToOpenlcb():
 				summary = mast.PutAspect(context, openlcb_handle)
 			else:
@@ -215,7 +286,7 @@ def main():
 
 	logging_args = {
 		'format': '%(asctime)s %(filename)s:%(lineno)d %(message)s',
-		'level': logging.DEBUG,
+		'level': logging.INFO,
 	}
 	if args.pretty or args.output_xml:
 		logging_args['filename'] = '/tmp/signal_server.log'

@@ -83,7 +83,7 @@ class JMRI(object):
 		sensor_data_json = self._GetJsonData('/json/sensors')
 		sensor_states = {}
 
-		logging.info(sensor_data_json)
+		logging.debug(sensor_data_json)
 
 		for sensor in sensor_data_json:
 			name = sensor['data']['name']

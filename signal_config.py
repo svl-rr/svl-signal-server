@@ -5,7 +5,7 @@ import yaml
 
 
 def _GetNextMostPermissiveAspect(aspect):
-    logging.info('Computing next most permissive aspect for %s', aspect)
+    logging.debug('Computing next most permissive aspect for %s', aspect)
     if 'SIGNAL_APPROACH_CLEAR_' in aspect:
         return SIGNAL_CLEAR
     if 'SIGNAL_APPROACH_' in aspect:
@@ -71,16 +71,16 @@ class SignalMast(object):
 
     def GetIntendedAspect(self, context):
         """Returns a SIGNAL_* instance; context is a LayoutContext object."""
-        logging.info('  Determining aspect for signal %s', self)
+        logging.debug('  Determining aspect for signal %s', self)
         reason = 'Unknown'
 
         if context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME).lower() == 'yes':
             if self._dispatch_config:
-                logging.info('  Can be configured by dispatch var %s in direction %s',
+                logging.debug('  Can be configured by dispatch var %s in direction %s',
                               self._dispatch_config.memory_var_name, self._dispatch_config.direction)
                 var_value = context.memory_vars.get(self._dispatch_config.memory_var_name)
                 if var_value:
-                    logging.info('  JMRI has a value for this variable: %s', var_value)
+                    logging.debug('  JMRI has a value for this variable: %s', var_value)
                     value_parts = var_value.split(':')
                     if len(value_parts) != 3:
                         return SIGNAL_STOP, 'Invalid memory contents: %s' % var_value
@@ -100,16 +100,16 @@ class SignalMast(object):
         generated_aspects = []
         stop_reasons = []
         for i, route in enumerate(self._routes):
-            logging.info('    Checking route %s', i)
+            logging.debug('    Checking route %s', i)
             aspect_for_route, reason = route.GetBestAspect(context)
             if aspect_for_route != SIGNAL_STOP:
-                logging.info('    Route %s was %s', i, aspect_for_route)
+                logging.debug('    Route %s was %s', i, aspect_for_route)
                 generated_aspects.append((aspect_for_route, reason))
             else:
                 route_name = 'Diverging' if route._is_diverging else 'Normal'
                 stop_reasons.append('%s has %s' % (route_name, reason))
         if not generated_aspects:
-            logging.info('  Signal %s has no non-stop routes', self)
+            logging.debug('  Signal %s has no non-stop routes', self)
             return SIGNAL_STOP, ', '.join(stop_reasons)
         if len(generated_aspects) > 1:
             logging.error('  Signal %s has two non-stop routes! Using SIGNAL_STOP.', self)
@@ -121,7 +121,7 @@ class SignalMast(object):
         raise NotImplementedError
 
         aspect, reason = self.GetIntendedAspect(context)
-        logging.info('  Signal %s at %s: %s',
+        logging.debug('  Signal %s at %s: %s',
             self._mast_name, aspect, reason)
         layout_handle.SetSignalMastAspect(
             self._mast_name, 'unused_address', aspect)
@@ -143,7 +143,7 @@ class SingleHeadMast(SignalMast):
         if '_DIVERGING_' in aspect:
             old_aspect = aspect
             aspect = aspect.replace('_DIVERGING', '').replace('_CLEAR_LIMITED', '_CLEAR_FIFTY')
-            logging.info('Hackily replaced 1-head diverging aspect %s with simple aspect %s',
+            logging.debug('Hackily replaced 1-head diverging aspect %s with simple aspect %s',
                          old_aspect, aspect)
             if aspect == SIGNAL_CLEAR:
                 # At least show a flashing green when diverging.
@@ -167,7 +167,7 @@ class SingleHeadMast(SignalMast):
     def PutAspect(self, context, layout_handle):
         aspect, reason = self.GetIntendedAspect(context)
         appearance = self.GetAppearance(aspect)
-        logging.info('  %s mapped aspect %s to %s [%s]',
+        logging.debug('  %s mapped aspect %s to %s [%s]',
             self._mast_name, aspect, appearance, reason)
         layout_handle.SetSignalHeadAppearance(self._mast_name, self._head_address, appearance)
         return SignalSummary(
@@ -220,7 +220,7 @@ class DoubleHeadMast(SignalMast):
             if upper_appearance == HEAD_DARK:
                 lower_appearance = HEAD_DARK
         
-        logging.info('  Mast %s is %s (%s over %s): %s',
+        logging.debug('  Mast %s is %s (%s over %s): %s',
             self._mast_name, aspect, upper_appearance, lower_appearance, reason)
         layout_handle.SetSignalHeadAppearance(
             self._mast_name + '_upper',
@@ -250,15 +250,15 @@ class SignalRoute(object):
         for i, req in enumerate(self._requirements):
             if not req.IsSatisfied(context.turnout_state, context.sensor_state):
                 return SIGNAL_STOP, 'Unsatisfied: %s' % req
-        logging.info('  All Requirements satisfied')
+        logging.debug('  All Requirements satisfied')
         if self._next_mast_name == 'green':
             next_mast_aspect = SIGNAL_CLEAR
-            logging.info('Next mast is hard-coded as CLEAR')
+            logging.debug('Next mast is hard-coded as CLEAR')
         else:
             next_mast = context.masts.get(self._next_mast_name)
             if next_mast:
                 next_mast_aspect, _ = next_mast.GetIntendedAspect(context)
-                logging.info('Next mast is %s, which is %s', self._next_mast_name, next_mast_aspect)
+                logging.debug('Next mast is %s, which is %s', self._next_mast_name, next_mast_aspect)
             else:
                 next_mast_aspect = SIGNAL_DARK
                 logging.warning('Next mast %s is unknown; assuming dark', self._next_mast_name)
@@ -304,7 +304,7 @@ def ParseRoute(route_config, is_diverging=False):
             }.get(raw_state)
             if not state:
                 raise AttributeError('Invalid turnout state %s', raw_state)
-            logging.info('  Parsed turnout requrement %s %s',
+            logging.debug('  Parsed turnout requrement %s %s',
                          turnout_name, state)
             route.AddRequirement(TurnoutRequirement(turnout_name, state))
         elif 'sensor' in requirement:
@@ -316,7 +316,7 @@ def ParseRoute(route_config, is_diverging=False):
             }.get(raw_state)
             if not state:
                 raise AttributeError('Invalid sensor state %s', raw_state)
-            logging.info('  Parsed sensor requirement %s %s',
+            logging.debug('  Parsed sensor requirement %s %s',
                          sensor_name, state)
 
             route.AddRequirement(SensorRequirement(sensor_name, state))
@@ -330,7 +330,7 @@ def LoadConfig(config_file_path):
     config_data = yaml.load(open(config_file_path, 'r'))
     signal_entries = {}  # name -> SignalMast
     for mast_name, configuration in config_data.items():
-        logging.info('Parsing requirements for mast %s', mast_name)
+        logging.debug('Parsing requirements for mast %s', mast_name)
 
         dispatch_config = None
         if 'dispatch_control' in configuration:
@@ -339,7 +339,7 @@ def LoadConfig(config_file_path):
 
         if 'head_address' in configuration:
             head = configuration['head_address']
-            logging.info('  Mast %s configured with single head %s',
+            logging.debug('  Mast %s configured with single head %s',
                 mast_name, head)
             signal = SingleHeadMast(mast_name, head, dispatch_config)
         elif 'upper_head_address' in configuration:
@@ -347,7 +347,7 @@ def LoadConfig(config_file_path):
                 raise AttributeError('lower_head_address required if upper_head_address provided')
             upper = configuration['upper_head_address']
             lower = configuration['lower_head_address']
-            logging.info('  Mast %s configured with heads %s + %s', mast_name, upper, lower)
+            logging.debug('  Mast %s configured with heads %s + %s', mast_name, upper, lower)
             signal = DoubleHeadMast(mast_name, upper, lower, dispatch_config=dispatch_config)
         else:
             raise AttributeError('Signal must define head_address or {upper,lower}_head_address')
