@@ -168,7 +168,7 @@ class OpenlcbLayoutHandle(object):
 			return
 		hdr_frame_type = int(header_bin[2:5], 2)
 		logging.debug('Frame type: %s', hdr_frame_type)
-		if hdr_frame_type in range(2, 5):
+		if hdr_frame_type in [2, 3, 4, 5]:
 			logging.debug('Ignoring datagram frame (type %s)', hdr_frame_type)
 			return
 		elif hdr_frame_type in [0, 6]:
