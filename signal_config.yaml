@@ -12,15 +12,15 @@ fryton_main_sb:
     requirements:
     - turnout: NT176 # greeley -> fryton switch
       state: thrown  # we actually want it closed, but the switch is reversed.
-    - sensor: FrytonMain  # fryton main
-    - sensor: GreeleyFrytonMainSwitch  # fryton siding switch (greeley side)
+    - sensor: FrytonMain
+    - sensor: GreeleyFrytonSidingSwitch
     next_signal: green
   diverging_route:
     requirements:
     - turnout: NT176 # greeley -> fryton switch
       state: closed  # this is actually thrown; switch is reversed for some reason :(
-    - sensor: GreeleyFrytonMainSwitch  # fryton siding switch (greeley side)
-    - sensor: FrytonSiding  # fryton siding
+    - sensor: GreeleyFrytonSidingSwitch
+    - sensor: FrytonSiding
     next_signal: green
 
 #ebbetts_pass_nb_from_fryton_main:
@@ -173,14 +173,6 @@ hemet_dwarf:
     - sensor: Hallelujah
     next_signal: hallelujah_to_greeley
 
-hallelujah_to_greeley:
-  head_address: None
-  normal_route:
-    requirements:
-    - sensor: Greeley
-    - sensor: Greeley_HallelujahSide
-    next_signal: fryton_main_sb
-
 hallelujah_to_igo:
   head_address: 05.01.01.01.47.02.00.0E
 
@@ -217,7 +209,8 @@ hallelujah_to_greeley:
 
   normal_route:
     requirements:
-      - sensor: Greeley
+    - sensor: Greeley
+    - sensor: Greeley_HallelujahSide
     next_signal: fryton_main_sb
 
 greeley_papermill_dwarf:
