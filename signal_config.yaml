@@ -164,6 +164,15 @@ igo_to_jacksonville_sb:
     - sensor: Jacksonville SB
     next_signal: green
 
+hemet_dwarf:
+  head_address: 05.01.01.01.47.05.00.07
+  normal_route:
+    requirements:
+    - turnout: NT226
+      state: thrown
+    - sensor: Hallelujah
+    next_signal: hallelujah_to_greeley
+
 hallelujah_to_greeley:
   head_address: None
   normal_route:
@@ -192,3 +201,30 @@ hallelujah_to_igo:
       state: thrown
     - sensor: Igo SB
     next_signal: igo_to_jacksonville_sb
+
+greeley_to_hallelujah:
+  upper_head_address: 05.01.01.01.47.05.00.0E
+  lower_head_address: 05.01.01.01.47.05.00.15
+
+  normal_route:
+    requirements:
+    - sensor: Hallelujah
+    next_signal: hallelujah_to_igo
+
+hallelujah_to_greeley:
+  upper_head_address: 05.01.01.01.47.05.00.23
+  lower_head_address: 05.01.01.01.47.05.00.1C
+
+  normal_route:
+    requirements:
+      - sensor: Greeley
+    next_signal: fryton_main_sb
+
+greeley_papermill_dwarf:
+  head_address: 05.01.01.01.47.05.00.2A
+
+  normal_route:
+    requirements:
+    - sensor: Greeley
+    - turnout: NT225
+      state: thrown
