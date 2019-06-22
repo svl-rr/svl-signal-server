@@ -2,6 +2,7 @@ import logging
 from enums import *
 from signal_requirements import *
 import yaml
+import sys
 
 
 def _GetNextMostPermissiveAspect(aspect):
@@ -100,17 +101,16 @@ class SignalMast(object):
         generated_aspects = []
         stop_reasons = []
         for i, route in enumerate(self._routes):
-            logging.debug('    Checking route %s', i)
+            logging.debug('    Checking route %s', route._route_name)
             aspect_for_route, reason = route.GetBestAspect(context)
             if aspect_for_route != SIGNAL_STOP:
-                logging.debug('    Route %s was %s', i, aspect_for_route)
+                logging.debug('    Route %s was %s', route._route_name, aspect_for_route)
                 generated_aspects.append((aspect_for_route, reason))
             else:
-                route_name = 'Diverging' if route._is_diverging else 'Normal'
-                stop_reasons.append('%s has %s' % (route_name, reason))
+                stop_reasons.append('%s has %s' % (route._route_name, reason))
         if not generated_aspects:
             logging.debug('  Signal %s has no non-stop routes', self)
-            return SIGNAL_STOP, ', '.join(stop_reasons)
+            return SIGNAL_STOP, ',\n'.join(stop_reasons)
         if len(generated_aspects) > 1:
             logging.error('  Signal %s has two non-stop routes! Using SIGNAL_STOP.', self)
             return SIGNAL_STOP, 'ERROR: Multiple routes possible'
@@ -142,8 +142,9 @@ class SingleHeadMast(SignalMast):
         # A 1-head mast on a diverging route is not great.
         if '_DIVERGING_' in aspect:
             old_aspect = aspect
-            aspect = aspect.replace('_DIVERGING', '').replace('_CLEAR_LIMITED', '_CLEAR_FIFTY')
-            logging.debug('Hackily replaced 1-head diverging aspect %s with simple aspect %s',
+            # SIGNAL_DIVERGING_CLEAR_LIMITED -> SIGNAL_APPROACH_CLEAR_FIFTY
+            aspect = aspect.replace('_DIVERGING', '').replace('_CLEAR_LIMITED', '_APPROACH_CLEAR_FIFTY')
+            logging.info('Hackily replaced 1-head diverging aspect %s with simple aspect %s',
                          old_aspect, aspect)
             if aspect == SIGNAL_CLEAR:
                 # At least show a flashing green when diverging.
@@ -238,15 +239,24 @@ class DoubleHeadMast(SignalMast):
 
 class SignalRoute(object):
 
-    def __init__(self, next_mast_name=None, is_diverging=False):
+    def __init__(self,
+                next_mast_name=None,
+                is_diverging=False,
+                route_name=None,
+                maximum_speed=None):
         self._requirements = []  # list of Requirement instances
         self._is_diverging = is_diverging
         self._next_mast_name = next_mast_name # may be None
+        self._route_name = route_name
+        self._maximum_speed = maximum_speed
 
     def AddRequirement(self, requirement):
         self._requirements.append(requirement)
 
     def GetBestAspect(self, context):
+        prefix = ''
+        if self._route_name:
+            prefix = '[%s] ' % self._route_name
         for i, req in enumerate(self._requirements):
             if not req.IsSatisfied(context.turnout_state, context.sensor_state):
                 return SIGNAL_STOP, 'Unsatisfied: %s' % req
@@ -264,10 +274,18 @@ class SignalRoute(object):
                 logging.warning('Next mast %s is unknown; assuming dark', self._next_mast_name)
         next_mast_aspect_pretty = next_mast_aspect.replace('SIGNAL_', '')
         aspect = _GetNextMostPermissiveAspect(next_mast_aspect)
+        reason = 'OK to %s, which is %s' % (self._next_mast_name, next_mast_aspect_pretty)
+        if self._maximum_speed == 'slow':
+            # hack hack hack
+            if aspect not in [SIGNAL_STOP, SIGNAL_DARK, SIGNAL_RESTRICTING]:
+                aspect = SIGNAL_APPROACH
+                reason = '[slow-approach] ' + reason
         if self._is_diverging:
-            return (ConvertAspectToDivergingAspect(aspect),
-                    'Diverging to %s, which is %s' % (self._next_mast_name, next_mast_aspect_pretty))
-        return aspect, 'Clear to %s, which is %s' % (self._next_mast_name, next_mast_aspect_pretty)
+            div_aspect = ConvertAspectToDivergingAspect(aspect)
+            logging.info('%s: converted aspect %s to diverging aspect %s', self._route_name, aspect, div_aspect)
+            reason = prefix + 'Diverging ' + reason
+            return (div_aspect, reason)
+        return aspect, prefix + reason
 
 
 class DispatchConfig(object):
@@ -279,18 +297,26 @@ class DispatchConfig(object):
         self.direction = direction
 
 
-def ParseRoute(route_config, is_diverging=False):
+def ParseRoute(route_name, route_config):
     """Parse a route config stanza into a SignalRoute.
 
-    Args: 
+    Args:
+        route_name: str, name for this route.
         route_config: dict, yaml config stanza for a route.
-        is_diverging: bool, True if the route_config is for
-          a diverging_route config stanza.
 
     Returns:
         SignalRoute instance.
     """
-    route = SignalRoute(route_config.get('next_signal'), is_diverging)
+    logging.info('Parsing route %s: %s', route_name, route_config)
+    is_diverging = route_config.get('is_diverging', False)
+    maximum_speed = route_config.get('maximum_speed')
+    if maximum_speed:
+        allowed = ['slow']
+        if maximum_speed not in allowed:
+            raise AttributeError('%s has invalid maximum_speed; must be one of %s' % (route_name, allowed))
+
+    route = SignalRoute(route_config.get('next_signal'), is_diverging,
+                        route_name=route_name, maximum_speed=maximum_speed)
     if 'requirements' not in route_config:
         raise AttributeError('Route config must have requirements')
 
@@ -352,13 +378,10 @@ def LoadConfig(config_file_path):
         else:
             raise AttributeError('Signal must define head_address or {upper,lower}_head_address')
 
-        if 'normal_route' not in configuration:
-            raise AttributeError('Signal must have a normal_route')
-        signal.AddRoute(ParseRoute(configuration['normal_route']))
-
-        if 'diverging_route' in configuration:
-            signal.AddRoute(ParseRoute(configuration['diverging_route'],
-                                       is_diverging=True))
+        if 'routes' not in configuration:
+            raise AttribtueError('Signal mast %s is missing a "routes" stanza' % mast_name)
+        for route_name, route_info in configuration['routes'].iteritems():
+            signal.AddRoute(ParseRoute(route_name, route_info))
 
         signal_entries[mast_name] = signal
     return signal_entries

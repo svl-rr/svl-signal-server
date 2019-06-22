@@ -8,20 +8,23 @@ fryton_main_sb:
   dispatch_control:
     memory_var: IMBA174
     direction: SB
-  normal_route:
-    requirements:
-    - turnout: NT176 # greeley -> fryton switch
-      state: thrown  # we actually want it closed, but the switch is reversed.
-    - sensor: FrytonMain
-    - sensor: GreeleyFrytonSidingSwitch
-    next_signal: green
-  diverging_route:
-    requirements:
-    - turnout: NT176 # greeley -> fryton switch
-      state: closed  # this is actually thrown; switch is reversed for some reason :(
-    - sensor: GreeleyFrytonSidingSwitch
-    - sensor: FrytonSiding
-    next_signal: green
+
+  routes:
+    main:
+      requirements:
+      - turnout: NT176 # greeley -> fryton switch
+        state: thrown  # we actually want it closed, but the switch is reversed.
+      - sensor: FrytonMain
+      - sensor: GreeleyFrytonSidingSwitch
+      next_signal: green
+    siding:
+      is_diverging: true
+      requirements:
+      - turnout: NT176 # greeley -> fryton switch
+        state: closed  # this is actually thrown; switch is reversed for some reason :(
+      - sensor: GreeleyFrytonSidingSwitch
+      - sensor: FrytonSiding
+      next_signal: green
 
 #ebbetts_pass_nb_from_fryton_main:
 #  normal_route:
@@ -37,7 +40,7 @@ fryton_main_sb:
 #      state: thrown
 #    next_signal: green
 
-jericho_nb:
+jacksonville_nb_to_jerico:
   upper_head_address: 997
   lower_head_address: 998
 
@@ -45,12 +48,13 @@ jericho_nb:
     memory_var: IMBA300
     direction: NB
 
-  normal_route:
-    requirements:
-    - sensor: JerichoNB
-    next_signal: KaosB
+  routes:
+    normal:
+      requirements:
+      - sensor: JerichoNB
+      next_signal: jerico_nb_to_kaos
 
-KaosA:
+kalamazoo_front_to_jerico:
   upper_head_address: 1234
   lower_head_address: 5678
 
@@ -58,14 +62,15 @@ KaosA:
     memory_var: IMBA302
     direction: SB
 
-  normal_route:
-    requirements:
-    - turnout: NT325
-      state: closed
-    - sensor: JerichoSB
-    next_signal: green # jericho_to_jacksonville_sb
+  routes:
+    normal:
+      requirements:
+      - turnout: NT325
+        state: closed
+      - sensor: JerichoSB
+      next_signal: green # jericho_to_jacksonville_sb
 
-KaosB:
+jerico_nb_to_kaos:
   upper_head_address: 2009
   lower_head_address: 2010
 
@@ -73,105 +78,95 @@ KaosB:
     memory_var: IMBA330
     direction: NB
 
-  normal_route:
-    requirements:
-    - sensor: KaosMain
-    - turnout: NT326
-      state: thrown # to kaos main
-    - turnout: NT325  # xover
-      state: closed
-    next_signal: green
-  diverging_route:
-    requirements:
-    - sensor: KaosMain
-    - turnout: NT326
-      state: closed  # "thru" route is modeled as "normal" turnout, even though it's diverging.
-    - turnout: NT325  # xover
-      state: closed
-    next_signal: green
+  routes:
+    kaos_main_to_loop:
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT326
+        state: closed # to kaos main
+      - turnout: NT325  # xover
+        state: closed
+      - turnout: NT327 # jasper
+        state: thrown
+      next_signal: green
+    to_kalamazoo_rear:
+      is_diverging: true
+      maximum_speed: slow
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT326
+        state: thrown
+      - turnout: NT325  # xover
+        state: closed
+      next_signal: green
 
 fryton_main_nb:
   upper_head_address: 2001
   lower_head_address: 2004
 
-  normal_route:
-    requirements:
-    - turnout: NT175
-      state: closed
-    - sensor: FrytonMain
-    next_signal: green
-  diverging_route:
-    requirements:
-    - turnout: NT175
-      state: thrown
-    - sensor: FrytonSiding
-    next_signal: green
-
-hallelujah_main_nb_paper:
-  upper_head_address: 2005
-  lower_head_address: 2006
-
-  dispatch_control:
-    memory_var: IMBA179
-    direction: NB
-
-  normal_route:
-    requirements:
-    - turnout: NT225
-      state: closed
-    - sensor: Hallelujah
-    next_signal: hallelujah_to_igo
-
-  diverging_route:
-    requirements:
-    - turnout: NT225
-      state: thrown
-    - turnout: NT227
-      state: thrown
-    next_signal: green
+  routes:
+    main:
+      requirements:
+      - turnout: NT175
+        state: closed
+      - sensor: FrytonMain
+      next_signal: green
+    siding:
+      requirements:
+      - turnout: NT175
+        state: thrown
+      - sensor: FrytonSiding
+      next_signal: green
 
 igo_to_hallelujah_sb_main:
   head_address: 05.01.01.01.47.02.00.00
 
-  normal_route:
-    requirements:
-    - turnout: NT250
-      state: thrown
-    - sensor: Hallelujah
-    next_signal: hallelujah_to_greeley
+  routes:
+    hallelujah:
+      requirements:
+      - turnout: NT250
+        state: thrown
+      - sensor: Hallelujah
+      next_signal: hallelujah_to_greeley
 
 igo_to_hallelujah_nb_main:
   head_address: 05.01.01.01.47.02.00.07
 
-  normal_route:
-    requirements:
-    - turnout: NT250
-      state: closed
-    - sensor: Hallelujah
-    next_signal: hallelujah_to_greeley
+  routes:
+    hallelujah:
+      requirements:
+      - turnout: NT250
+        state: closed
+      - sensor: Hallelujah
+      next_signal: hallelujah_to_greeley
 
 igo_to_jacksonville_nb:
   head_address: None
-  normal_route:
-    requirements:
-    - sensor: Jacksonville NB
-    next_signal: jericho_nb
+  routes:
+    jacksonville_nb:
+      requirements:
+      - sensor: Jacksonville NB
+      next_signal: jacksonville_nb_to_jerico
 
 igo_to_jacksonville_sb:
   head_address: None
-  normal_route:
-    requirements:
-    - sensor: Jacksonville SB
-    next_signal: green
+  routes:
+    jacksonville_sb:
+      requirements:
+      - sensor: Jacksonville SB
+      next_signal: green
 
 hemet_dwarf:
   head_address: 05.01.01.01.47.05.00.07
-  normal_route:
-    requirements:
-    - turnout: NT226
-      state: thrown
-    - sensor: Hallelujah
-    next_signal: hallelujah_to_greeley
+
+  routes:
+    onto_main:
+      is_diverging: true
+      requirements:
+      - turnout: NT226
+        state: thrown
+      # TODO: speed limit or other restriction?
+      next_signal: hallelujah_to_greeley
 
 hallelujah_to_igo:
   head_address: 05.01.01.01.47.02.00.0E
@@ -180,44 +175,87 @@ hallelujah_to_igo:
     memory_var: IMTA250A
     direction: NB
 
-  normal_route:
-    requirements:
-    - turnout: NT250
-      state: closed
-    - sensor: Igo NB
-    next_signal: igo_to_jacksonville_nb
-
-  diverging_route:
-    requirements:
-    - turnout: NT250
-      state: thrown
-    - sensor: Igo SB
-    next_signal: igo_to_jacksonville_sb
+  routes:
+    nb:
+      requirements:
+      - turnout: NT250
+        state: closed
+      - sensor: Igo NB
+      next_signal: igo_to_jacksonville_nb
+    sb:
+      next_signal: igo_to_jacksonville_sb
+      is_diverging: true
+      requirements:
+      - turnout: NT250
+        state: thrown
+      - sensor: Igo SB    
 
 greeley_to_hallelujah:
   upper_head_address: 05.01.01.01.47.05.00.0E
   lower_head_address: 05.01.01.01.47.05.00.15
 
-  normal_route:
-    requirements:
-    - sensor: Hallelujah
-    next_signal: hallelujah_to_igo
+  dispatch_control:
+    memory_var: IMBA179
+    direction: NB
+
+  routes:
+    to_igo:
+      next_signal: hallelujah_to_igo
+      requirements:
+      - sensor: Hallelujah
+      - turnout: NT226 # hemet
+        state: closed
+      - turnout: NT225 # papermill xover
+        state: closed
+      - turnout: NT227 # papermill xover
+        state: closed
+    to_hemet:
+      # next_signal: none
+      is_diverging: true
+      maximum_speed: slow
+      requirements:
+      - sensor: Hallelujah
+      - turnout: NT226 # hemet
+        state: thrown
+      - turnout: NT225 # papermill xover
+        state: closed
+      - turnout: NT227 # papermill xover
+        state: closed
+    xover_to_papermill:
+      is_diverging: true
+      maximum_speed: slow
+      requirements:
+      - turnout: NT225
+        state: thrown
+      - turnout: NT227
+        state: thrown
+      next_signal: green
 
 hallelujah_to_greeley:
   upper_head_address: 05.01.01.01.47.05.00.23
   lower_head_address: 05.01.01.01.47.05.00.1C
 
-  normal_route:
-    requirements:
-    - sensor: Greeley
-    - sensor: Greeley_HallelujahSide
-    next_signal: fryton_main_sb
+  routes:
+    greeley:
+      requirements:
+      - sensor: Greeley
+      - sensor: Greeley_HallelujahSide
+      - turnout: NT225  # one half of crossover
+        state: closed
+      - turnout: NT227  # other half of xover
+        state: closed
+      next_signal: fryton_main_sb
 
 greeley_papermill_dwarf:
   head_address: 05.01.01.01.47.05.00.2A
 
-  normal_route:
-    requirements:
-    - sensor: Greeley
-    - turnout: NT225
-      state: thrown
+  routes:
+    onto_main:
+      is_diverging: true
+      requirements:
+      - sensor: Greeley
+      - turnout: NT225  # one half of crossover
+        state: thrown
+      - turnout: NT227  # other half of xover
+        state: thrown
+      next_signal: fryton_main_sb
