@@ -183,9 +183,48 @@ class OpenlcbLayoutHandle(object):
 		can_mti_bin = header_bin[5:17]
 		logging.debug("binary mti: %s", can_mti_bin)
 		can_mti = hex(int(header_bin[5:17], 2))
-		logging.info('Processing incoming packet with MTI: %s', can_mti)
+
+		mti_descriptions = {
+			'0x100': 'Initialization Complete (Full)',
+			'0x101': 'Initialization Complete (Simple)',
+
+			'0x488': 'Verify NodeID (Addressed)',
+			'0x490': 'Verify NodeID (Global)',
+
+			'0x170': 'Verified NodeID (Full)',
+			'0x171': 'Verified NodeID (Simple)',
+
+			'0x68': 'Optional Interaction Rejected',
+
+			'0xa8': 'Terminate due to Error',
+
+			'0x4a4': 'Consumer Range Identified',
+			'0x4c4': 'Consumer Identified and State=Valid',
+			'0x4c5': 'Consumer Identified and State=Invalid',
+			'0x4c7': 'Consumer Identified and State=Unknown',
+
+			'0x524': 'Producer Range Identified',
+			'0x544': 'Producer Identified and State=Valid',
+			'0x545': 'Producer Identified and State=Invalid',
+			'0x547': 'Producer Identified and State=Unknown',
+
+			'0x5b4': 'P/C Event Report',
+
+			'0x668': 'Protocol Support Reply',
+			'0x828': 'Protocol Support Inquiry',
+
+			'0x8f4': 'Identify Consumer',
+			'0x914': 'Identify Producer',
+
+			'0xa08': 'SNIP Reply',
+			'0xde8': 'SNIP Request',
+		}
+
+		description = mti_descriptions.get(can_mti, 'Unknown Packet with MTI %s' % can_mti)
+		logging.info('Processing incoming packet (%s)', description)
 		if can_mti not in ['0x100', '0x101']:
 			return
+
 		logging.info('Broadcasting cache!')
 		self._BroadcastCache()
 

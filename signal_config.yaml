@@ -5,10 +5,6 @@ greeley_to_fryton:
   upper_head_address: 05.01.01.01.47.06.00.15
   lower_head_address: 05.01.01.01.47.06.00.1C
 
-  dispatch_control:
-    memory_var: IMBA174
-    direction: SB
-
   routes:
     main:
       requirements:
@@ -17,6 +13,9 @@ greeley_to_fryton:
       - sensor: FrytonMain
       - sensor: GreeleyFrytonSidingSwitch
       next_signal: green
+      dispatch_control:
+        memory_var: IMBA174  # fryton main
+        direction: SB
     siding:
       is_diverging: true
       requirements:
@@ -25,6 +24,9 @@ greeley_to_fryton:
       - sensor: GreeleyFrytonSidingSwitch
       - sensor: FrytonSiding
       next_signal: green
+      dispatch_control:
+        memory_var: IMBA177  # fryton siding
+        direction: SB
 
 #ebbetts_pass_nb_from_fryton_main:
 #  normal_route:
@@ -44,23 +46,18 @@ jacksonville_nb_to_jerico:
   upper_head_address: 997
   lower_head_address: 998
 
-  dispatch_control:
-    memory_var: IMBA300
-    direction: NB
-
   routes:
     normal:
       requirements:
       - sensor: JerichoNB
       next_signal: jerico_nb_to_kaos
+      dispatch_control:
+        memory_var: IMBA300
+        direction: NB
 
 kalamazoo_front_to_jerico:
   upper_head_address: 1234
   lower_head_address: 5678
-
-  dispatch_control:
-    memory_var: IMBA302
-    direction: SB
 
   routes:
     normal:
@@ -69,32 +66,34 @@ kalamazoo_front_to_jerico:
         state: closed
       - sensor: JerichoSB
       next_signal: green # jericho_to_jacksonville_sb
+      dispatch_control:
+        memory_var: IMBA302  # kalamazoo -> Kaos, front road crossing track
+        direction: SB
 
 jerico_nb_to_kaos:
   upper_head_address: 2009
   lower_head_address: 2010
 
-  dispatch_control:
-    memory_var: IMBA330
-    direction: NB
-
   routes:
     kaos_main_to_loop:
       requirements:
       - sensor: KaosMain
-      - turnout: NT326
+      - turnout: NT326  # kalamazoo rear track / kaos main
         state: closed # to kaos main
       - turnout: NT325  # xover
         state: closed
       - turnout: NT327 # jasper
         state: thrown
       next_signal: green
+      dispatch_control:
+        memory_var: IMBA331  # Loop NB
+        direction: NB
     to_kalamazoo_rear:
       is_diverging: true
       maximum_speed: slow
       requirements:
       - sensor: KaosMain
-      - turnout: NT326
+      - turnout: NT326 # kalamazoo rear track / kaos main
         state: thrown
       - turnout: NT325  # xover
         state: closed
@@ -128,6 +127,9 @@ igo_to_hallelujah_sb_main:
         state: thrown
       - sensor: Hallelujah
       next_signal: hallelujah_to_greeley
+      dispatch_control:
+        memory_var: IMBA179  # Hallelujah  Main
+        direction: SB
 
 igo_to_hallelujah_nb_main:
   head_address: 05.01.01.01.47.02.00.07
@@ -139,6 +141,9 @@ igo_to_hallelujah_nb_main:
         state: closed
       - sensor: Hallelujah
       next_signal: hallelujah_to_greeley
+      dispatch_control:
+        memory_var: IMBA179  # Hallelujah  Main
+        direction: SB
 
 igo_to_jacksonville_nb:
   head_address: None
@@ -171,10 +176,6 @@ hemet_dwarf:
 hallelujah_to_igo:
   head_address: 05.01.01.01.47.02.00.0E
 
-  dispatch_control:
-    memory_var: IMTA250A
-    direction: NB
-
   routes:
     nb:
       requirements:
@@ -182,6 +183,9 @@ hallelujah_to_igo:
         state: closed
       - sensor: Igo NB
       next_signal: igo_to_jacksonville_nb
+      dispatch_control:
+        memory_var: IMBA252  # Igo NB
+        direction: NB
     sb:
       next_signal: igo_to_jacksonville_sb
       is_diverging: true
@@ -189,6 +193,9 @@ hallelujah_to_igo:
       - turnout: NT250
         state: thrown
       - sensor: Igo SB
+      dispatch_control:
+        memory_var: IMBA253  # Igo SB
+        direction: SB
 
 fryton_main_to_greeley:
   head_address: 05.01.01.01.47.06.00.00
@@ -202,6 +209,9 @@ fryton_main_to_greeley:
       - sensor: GreeleyFrytonSidingSwitch
       - turnout: NT176
         state: thrown  # backwards :(
+      dispatch_control:
+        memory_var: IMBA178  # Greeley Main
+        direction: NB
 
 
 fryton_siding_to_greeley:
@@ -217,14 +227,14 @@ fryton_siding_to_greeley:
       - sensor: GreeleyFrytonSidingSwitch
       - turnout: NT176
         state: closed  # backwards :(
+      dispatch_control:
+        memory_var: IMBA178  # Greeley Main
+        direction: NB
+
 
 greeley_to_hallelujah:
   upper_head_address: 05.01.01.01.47.05.00.0E
   lower_head_address: 05.01.01.01.47.05.00.15
-
-  dispatch_control:
-    memory_var: IMBA179
-    direction: NB
 
   routes:
     to_igo:
@@ -235,6 +245,9 @@ greeley_to_hallelujah:
         state: closed
       - turnout: NT225 # papermill
         state: closed
+      dispatch_control:
+        memory_var: IMBA179  # Hallelujah Main
+        direction: NB
     to_hemet:
       # next_signal: none
       is_diverging: true
@@ -265,6 +278,9 @@ hallelujah_to_greeley:
       - turnout: NT225  # papermill
         state: closed
       next_signal: greeley_to_fryton
+      dispatch_control:
+        memory_var: IMBA178  # Greeley Main
+        direction: SB
 
 greeley_papermill_dwarf:
   head_address: 05.01.01.01.47.05.00.2A

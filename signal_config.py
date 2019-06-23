@@ -32,6 +32,23 @@ def _GetNextMostPermissiveAspect(aspect):
     }.get(aspect, SIGNAL_RESTRICTING)
 
 
+def _DispatchSignalingMode(context):
+    return context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME).lower() == 'yes'
+
+def _GetDispatchVarContent(context, var_name):
+    """Returns (direction_in_var, reason)"""
+    var_value = context.memory_vars.get(var_name)
+    if not var_value:
+        return (None, 'Dispatch var %s not found' % var_name)
+    logging.info('  JMRI has a value for this variable: %s', var_value)
+    value_parts = var_value.split(':')
+    if len(value_parts) != 3:
+        return (None, 'Invalid memory content: %s' % var_value)
+    unk_junk, section_status, dispatcher_label = value_parts
+    return (section_status, dispatcher_label), 'OK'
+
+
+
 class SignalSummary(object):
     def __init__(self, aspect, appearance, reason):
         self.aspect = aspect.replace('SIGNAL_', '')
@@ -50,14 +67,12 @@ class SignalSummary(object):
 
 class SignalMast(object):
 
-    def __init__(self, mast_name, dispatch_config=None):
+    def __init__(self, mast_name):
         """Initializer.
 
         mast_name: str, signal mast name being described
-        dispatch_config: DispatchConfig or None
         """
         self._mast_name = mast_name
-        self._dispatch_config = dispatch_config
         # list of SignalRoute instances
         self._routes = []
 
@@ -70,51 +85,37 @@ class SignalMast(object):
     def PostToOpenlcb(self):
         return False
 
+    def HasRouteDispatchConfigs(self):
+        return True
+        for route in self._routes:
+            if route._dispatch_config:
+                return True
+        return False
+
     def GetIntendedAspect(self, context):
         """Returns a SIGNAL_* instance; context is a LayoutContext object."""
         logging.debug('  Determining aspect for signal %s', self)
         reason = 'Unknown'
 
-        if context.memory_vars.get(SVL_DISPATCH_SIGNAL_CONTROL_MEMORY_VAR_NAME).lower() == 'yes':
-            if self._dispatch_config:
-                logging.debug('  Can be configured by dispatch var %s in direction %s',
-                              self._dispatch_config.memory_var_name, self._dispatch_config.direction)
-                var_value = context.memory_vars.get(self._dispatch_config.memory_var_name)
-                if var_value:
-                    logging.debug('  JMRI has a value for this variable: %s', var_value)
-                    value_parts = var_value.split(':')
-                    if len(value_parts) != 3:
-                        return SIGNAL_STOP, 'Invalid memory contents: %s' % var_value
-                    direction = self._dispatch_config.direction
-                    clear = 'Authorized ' + direction
-                    occupied = 'Occupied ' + direction
-                    if value_parts[1] == clear:
-                        # TODO: Figure out if clearance is ending by looking at forward signals
-                        return SIGNAL_CLEAR, 'Dispatch authorized %s' % direction
-                    elif value_parts[1] == occupied:
-                        return SIGNAL_RESTRICTING, 'Dispatch occupied %s' % direction
-                    else:
-                        return SIGNAL_STOP, 'No dispatch clearance: %s' % value_parts[1]
-
-            return SIGNAL_DARK, 'Missing or invalid dispatch config'
-
         generated_aspects = []
-        stop_reasons = []
+        no_aspect_reasons = []
         for i, route in enumerate(self._routes):
             logging.debug('    Checking route %s', route._route_name)
-            aspect_for_route, reason = route.GetBestAspect(context)
-            if aspect_for_route != SIGNAL_STOP:
-                logging.debug('    Route %s was %s', route._route_name, aspect_for_route)
-                generated_aspects.append((aspect_for_route, reason))
-            else:
-                stop_reasons.append('%s has %s' % (route._route_name, reason))
+            aspect_for_route, reason = route.GetAspectOrNone(context)
+            logging.debug('    Route %s was %s', route._route_name, aspect_for_route)
+            if not aspect_for_route:
+                logging.info('Mast %s Route %s has no aspect because %s', self._mast_name, route._route_name, reason)
+                no_aspect_reasons.append('%s has %s' % (route._route_name, reason))
+                continue
+            generated_aspects.append((aspect_for_route, reason))
         if not generated_aspects:
-            logging.debug('  Signal %s has no non-stop routes', self)
-            return SIGNAL_STOP, ',\n'.join(stop_reasons)
+            logging.debug('  Signal %s has no possible routes', self)
+            return SIGNAL_STOP, ',\n'.join(no_aspect_reasons)
         if len(generated_aspects) > 1:
-            logging.error('  Signal %s has two non-stop routes! Using SIGNAL_STOP.', self)
+            logging.error('  Signal %s has two non-stop routes (%s)! Using SIGNAL_STOP.', self, generated_aspects)
             return SIGNAL_STOP, 'ERROR: Multiple routes possible'
-        return generated_aspects[0]
+        aspect, reason = generated_aspects[0]
+        return aspect, reason
 
     def PutAspect(self, context, layout_handle):
         """Enacts the will of this SignalMast."""
@@ -129,8 +130,8 @@ class SignalMast(object):
 
 
 class SingleHeadMast(SignalMast):
-    def __init__(self, mast_name, head_address, dispatch_config=None):
-        super(SingleHeadMast, self).__init__(mast_name, dispatch_config)
+    def __init__(self, mast_name, head_address):
+        super(SingleHeadMast, self).__init__(mast_name)
         self._head_address = head_address
 
     def PostToOpenlcb(self):
@@ -144,7 +145,7 @@ class SingleHeadMast(SignalMast):
             old_aspect = aspect
             # SIGNAL_DIVERGING_CLEAR_LIMITED -> SIGNAL_APPROACH_CLEAR_FIFTY
             aspect = aspect.replace('_DIVERGING', '').replace('_CLEAR_LIMITED', '_APPROACH_CLEAR_FIFTY')
-            logging.info('Hackily replaced 1-head diverging aspect %s with simple aspect %s',
+            logging.debug('Hackily replaced 1-head diverging aspect %s with simple aspect %s',
                          old_aspect, aspect)
             if aspect == SIGNAL_CLEAR:
                 # At least show a flashing green when diverging.
@@ -180,9 +181,8 @@ class SingleHeadMast(SignalMast):
 class DoubleHeadMast(SignalMast):
     def __init__(
             self, mast_name,
-            upper_head_address, lower_head_address,
-            dispatch_config=None):
-        super(DoubleHeadMast, self).__init__(mast_name, dispatch_config)
+            upper_head_address, lower_head_address):
+        super(DoubleHeadMast, self).__init__(mast_name)
         self._upper_head_address = upper_head_address
         self._lower_head_address = lower_head_address
 
@@ -243,23 +243,26 @@ class SignalRoute(object):
                 next_mast_name=None,
                 is_diverging=False,
                 route_name=None,
-                maximum_speed=None):
+                maximum_speed=None,
+                dispatch_config=None):
         self._requirements = []  # list of Requirement instances
         self._is_diverging = is_diverging
         self._next_mast_name = next_mast_name # may be None
         self._route_name = route_name
         self._maximum_speed = maximum_speed
+        self._dispatch_config = dispatch_config
 
     def AddRequirement(self, requirement):
         self._requirements.append(requirement)
 
-    def GetBestAspect(self, context):
+    def GetAspectOrNone(self, context):
         prefix = ''
         if self._route_name:
             prefix = '[%s] ' % self._route_name
+
         for i, req in enumerate(self._requirements):
             if not req.IsSatisfied(context.turnout_state, context.sensor_state):
-                return SIGNAL_STOP, 'Unsatisfied: %s' % req
+                return None, 'Unsatisfied: %s' % req
         logging.debug('  All Requirements satisfied')
         if self._next_mast_name == 'green':
             next_mast_aspect = SIGNAL_CLEAR
@@ -280,6 +283,37 @@ class SignalRoute(object):
             if aspect not in [SIGNAL_STOP, SIGNAL_DARK, SIGNAL_RESTRICTING]:
                 aspect = SIGNAL_APPROACH
                 reason = '[slow-approach] ' + reason
+
+        # At this point, we have a non-stop aspect to return.
+
+        # Lack of dispatch clearance should "obscure" this mast.
+        if _DispatchSignalingMode(context):
+            if not self._dispatch_config:
+                return SIGNAL_DARK, prefix + 'No dispatch config'
+
+            logging.debug('  Can be configured by dispatch var %s when direction is "%s"',
+                          self._dispatch_config.memory_var_name, self._dispatch_config.direction)
+
+            dispatch_section_status, invalid_dispatch_reason = _GetDispatchVarContent(context, self._dispatch_config.memory_var_name)
+            if not dispatch_section_status:
+                return SIGNAL_DARK, invalid_dispatch_reason
+
+            section_status, dispatcher_label = dispatch_section_status
+
+            direction = self._dispatch_config.direction
+            clear = 'Authorized ' + direction
+            occupied = 'Occupied ' + direction
+            if section_status == clear:
+                # TODO: Figure out if clearance is ending by looking at forward signals
+                logging.info('Route %s authorized %s for %s; computing aspect',
+                             self._route_name, direction, dispatcher_label)
+                prefix = '[%s Authorized %s for %s] ' % (self._route_name, direction, dispatcher_label)
+            elif section_status == occupied:
+                return SIGNAL_RESTRICTING, '%s occupied %s' % (dispatcher_label, direction)
+            else:
+                return SIGNAL_STOP, 'No dispatch clearance: %s' % section_status
+        
+        # Now we return an aspect.
         if self._is_diverging:
             div_aspect = ConvertAspectToDivergingAspect(aspect)
             logging.debug('%s: converted aspect %s to diverging aspect %s', self._route_name, aspect, div_aspect)
@@ -314,9 +348,15 @@ def ParseRoute(route_name, route_config):
         allowed = ['slow']
         if maximum_speed not in allowed:
             raise AttributeError('%s has invalid maximum_speed; must be one of %s' % (route_name, allowed))
+    dispatch_config = None
+    dispatch_config_items = route_config.get('dispatch_control')
+    if dispatch_config_items:
+        dispatch_config = DispatchConfig(dispatch_config_items['memory_var'],
+                                         dispatch_config_items['direction'])
 
     route = SignalRoute(route_config.get('next_signal'), is_diverging,
-                        route_name=route_name, maximum_speed=maximum_speed)
+                        route_name=route_name, maximum_speed=maximum_speed,
+                        dispatch_config=dispatch_config)
     if 'requirements' not in route_config:
         raise AttributeError('Route config must have requirements')
 
@@ -358,23 +398,21 @@ def LoadConfig(config_file_path):
     for mast_name, configuration in config_data.items():
         logging.debug('Parsing requirements for mast %s', mast_name)
 
-        dispatch_config = None
-        if 'dispatch_control' in configuration:
-            d = configuration['dispatch_control']
-            dispatch_config = DispatchConfig(d['memory_var'], d['direction'])
-
         if 'head_address' in configuration:
             head = configuration['head_address']
             logging.debug('  Mast %s configured with single head %s',
                 mast_name, head)
-            signal = SingleHeadMast(mast_name, head, dispatch_config)
+            signal = SingleHeadMast(mast_name, head)
+            del configuration['head_address']
         elif 'upper_head_address' in configuration:
             if 'lower_head_address' not in configuration:
                 raise AttributeError('lower_head_address required if upper_head_address provided')
             upper = configuration['upper_head_address']
             lower = configuration['lower_head_address']
             logging.debug('  Mast %s configured with heads %s + %s', mast_name, upper, lower)
-            signal = DoubleHeadMast(mast_name, upper, lower, dispatch_config=dispatch_config)
+            signal = DoubleHeadMast(mast_name, upper, lower)
+            del configuration['upper_head_address']
+            del configuration['lower_head_address']
         else:
             raise AttributeError('Signal must define head_address or {upper,lower}_head_address')
 
@@ -382,6 +420,11 @@ def LoadConfig(config_file_path):
             raise AttribtueError('Signal mast %s is missing a "routes" stanza' % mast_name)
         for route_name, route_info in configuration['routes'].iteritems():
             signal.AddRoute(ParseRoute(route_name, route_info))
+
+        del configuration['routes']
+
+        if configuration.keys():
+            raise AttributeError('Unknown configuration items: %s', configuration.keys())
 
         signal_entries[mast_name] = signal
     return signal_entries
