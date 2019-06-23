@@ -1,9 +1,9 @@
 # SVL signal configuration file
 # Default required sensor state is "off" (inactive).
 
-fryton_main_sb:
-  upper_head_address: 2002
-  lower_head_address: 2003
+greeley_to_fryton:
+  upper_head_address: 05.01.01.01.47.06.00.15
+  lower_head_address: 05.01.01.01.47.06.00.1C
 
   dispatch_control:
     memory_var: IMBA174
@@ -188,7 +188,35 @@ hallelujah_to_igo:
       requirements:
       - turnout: NT250
         state: thrown
-      - sensor: Igo SB    
+      - sensor: Igo SB
+
+fryton_main_to_greeley:
+  head_address: 05.01.01.01.47.06.00.00
+
+  routes:
+    main:
+      next_signal: greeley_to_hallelujah
+      requirements:
+      - sensor: Greeley
+      - sensor: Greeley_HallelujahSide
+      - sensor: GreeleyFrytonSidingSwitch
+      - turnout: NT176
+        state: thrown  # backwards :(
+
+
+fryton_siding_to_greeley:
+  head_address: 05.01.01.01.47.06.00.07
+
+  routes:
+    onto_main:
+      is_diverging: true
+      next_signal: greeley_to_hallelujah
+      requirements:
+      - sensor: Greeley
+      - sensor: Greeley_HallelujahSide
+      - sensor: GreeleyFrytonSidingSwitch
+      - turnout: NT176
+        state: closed  # backwards :(
 
 greeley_to_hallelujah:
   upper_head_address: 05.01.01.01.47.05.00.0E
@@ -205,9 +233,7 @@ greeley_to_hallelujah:
       - sensor: Hallelujah
       - turnout: NT226 # hemet
         state: closed
-      - turnout: NT225 # papermill xover
-        state: closed
-      - turnout: NT227 # papermill xover
+      - turnout: NT225 # papermill
         state: closed
     to_hemet:
       # next_signal: none
@@ -217,17 +243,13 @@ greeley_to_hallelujah:
       - sensor: Hallelujah
       - turnout: NT226 # hemet
         state: thrown
-      - turnout: NT225 # papermill xover
-        state: closed
-      - turnout: NT227 # papermill xover
+      - turnout: NT225 # papermill
         state: closed
     xover_to_papermill:
       is_diverging: true
       maximum_speed: slow
       requirements:
       - turnout: NT225
-        state: thrown
-      - turnout: NT227
         state: thrown
       next_signal: green
 
@@ -240,11 +262,9 @@ hallelujah_to_greeley:
       requirements:
       - sensor: Greeley
       - sensor: Greeley_HallelujahSide
-      - turnout: NT225  # one half of crossover
+      - turnout: NT225  # papermill
         state: closed
-      - turnout: NT227  # other half of xover
-        state: closed
-      next_signal: fryton_main_sb
+      next_signal: greeley_to_fryton
 
 greeley_papermill_dwarf:
   head_address: 05.01.01.01.47.05.00.2A
@@ -254,8 +274,6 @@ greeley_papermill_dwarf:
       is_diverging: true
       requirements:
       - sensor: Greeley
-      - turnout: NT225  # one half of crossover
+      - turnout: NT225
         state: thrown
-      - turnout: NT227  # other half of xover
-        state: thrown
-      next_signal: fryton_main_sb
+      next_signal: greeley_to_fryton

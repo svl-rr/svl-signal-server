@@ -282,7 +282,7 @@ class SignalRoute(object):
                 reason = '[slow-approach] ' + reason
         if self._is_diverging:
             div_aspect = ConvertAspectToDivergingAspect(aspect)
-            logging.info('%s: converted aspect %s to diverging aspect %s', self._route_name, aspect, div_aspect)
+            logging.debug('%s: converted aspect %s to diverging aspect %s', self._route_name, aspect, div_aspect)
             reason = prefix + 'Diverging ' + reason
             return (div_aspect, reason)
         return aspect, prefix + reason
@@ -307,7 +307,7 @@ def ParseRoute(route_name, route_config):
     Returns:
         SignalRoute instance.
     """
-    logging.info('Parsing route %s: %s', route_name, route_config)
+    logging.debug('Parsing route %s: %s', route_name, route_config)
     is_diverging = route_config.get('is_diverging', False)
     maximum_speed = route_config.get('maximum_speed')
     if maximum_speed:

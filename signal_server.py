@@ -247,7 +247,7 @@ class OpenlcbLayoutHandle(object):
 			self.SetSignalHeadAppearance(mast_name, first_eventid, appearance, ignore_cache=True)
 
 
-def Update(jmri_handle, openlcb_handle):
+def Update(jmri_handle, openlcb_handle, reset_terminal=False):
 	try:
 		signal_masts_by_name = signal_config.LoadConfig(SIGNAL_CONFIG_FILE)
 		
@@ -268,6 +268,9 @@ def Update(jmri_handle, openlcb_handle):
 				summary = mast.PutAspect(context, jmri_handle)
 			table.add_row([str(mast), summary.aspect, summary.appearance, summary.reason])
 
+		if reset_terminal:
+			print(chr(27) + "[2J")
+		print 'Signal Server Status'
 		print table
 
 	except Exception as e:
@@ -288,8 +291,8 @@ def main():
 		'format': '%(asctime)s %(filename)s:%(lineno)d %(message)s',
 		'level': logging.INFO,
 	}
-	if args.pretty or args.output_xml:
-		logging_args['filename'] = '/tmp/signal_server.log'
+	# if args.pretty or args.output_xml:
+	logging_args['filename'] = '/var/log/svl_signal_server.log'
 
 	logging.basicConfig(**logging_args)
 
@@ -309,9 +312,7 @@ def main():
 	openlcb_handle = OpenlcbLayoutHandle(None)
 
 	while True:
-		if args.pretty:
-			print(chr(27) + "[2J")
-		Update(jmri_handle, openlcb_handle)
+		Update(jmri_handle, openlcb_handle, reset_terminal=args.pretty)
 		if args.pretty:
 			print 'Last Update: ' + time.ctime(time.time())
 		time.sleep(SECONDS_BETWEEN_POLLS)
