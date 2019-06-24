@@ -1,4 +1,5 @@
 import logging
+from enums import *
 
 class Requirement(object):
 
@@ -21,7 +22,7 @@ class SensorRequirement(Requirement):
 			logging.error(
 				'Required sensor %s not found in provided data', self._sensor_name)
 			return False
-		if actual_sensor_state == self._required_state:
+		if actual_sensor_state in [self._required_state, SENSOR_UNKNOWN]:
 			logging.debug('%s satisfied', self)
 			return True
 		logging.debug('%s not satisfied (actual state: %s)',

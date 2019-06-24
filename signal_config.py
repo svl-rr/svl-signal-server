@@ -92,6 +92,10 @@ class SignalMast(object):
                 return True
         return False
 
+    def _SetJMRIMemoryVariable(self, jmri, head_name, appearance):
+        var_name = ('IMsignalhead_' + head_name).upper()
+        jmri.SetMemoryVar(var_name, appearance.replace('HEAD_', ''))
+
     def GetIntendedAspect(self, context):
         """Returns a SIGNAL_* instance; context is a LayoutContext object."""
         logging.debug('  Determining aspect for signal %s', self)
@@ -120,13 +124,6 @@ class SignalMast(object):
     def PutAspect(self, context, layout_handle):
         """Enacts the will of this SignalMast."""
         raise NotImplementedError
-
-        aspect, reason = self.GetIntendedAspect(context)
-        logging.debug('  Signal %s at %s: %s',
-            self._mast_name, aspect, reason)
-        layout_handle.SetSignalMastAspect(
-            self._mast_name, 'unused_address', aspect)
-        return SignalSummary(aspect, 'None (JMRI Mast)', reason)
 
 
 class SingleHeadMast(SignalMast):
@@ -163,15 +160,16 @@ class SingleHeadMast(SignalMast):
         elif aspect == SIGNAL_DARK:
             return HEAD_DARK
 
-
         return HEAD_RED
 
-    def PutAspect(self, context, layout_handle):
+    def PutAspect(self, context, layout_handle, jmri_for_mem=None):
         aspect, reason = self.GetIntendedAspect(context)
         appearance = self.GetAppearance(aspect)
         logging.debug('  %s mapped aspect %s to %s [%s]',
             self._mast_name, aspect, appearance, reason)
         layout_handle.SetSignalHeadAppearance(self._mast_name, self._head_address, appearance)
+        if jmri_for_mem:
+            self._SetJMRIMemoryVariable(jmri_for_mem, self._mast_name, appearance)
         return SignalSummary(
             aspect,
             SignalSummary.PrettyAppearance(appearance),
@@ -194,7 +192,7 @@ class DoubleHeadMast(SignalMast):
             raise AttributeError('In %s: upper head and lower head must neither or both be event IDs' % self._mast_name)
         return upper_head_looks_eventy 
 
-    def PutAspect(self, context, layout_handle):
+    def PutAspect(self, context, layout_handle, jmri_for_mem):
         aspect, reason = self.GetIntendedAspect(context)
         upper_appearance = lower_appearance = HEAD_RED
         if 'DIVERGING' in aspect:
@@ -223,14 +221,19 @@ class DoubleHeadMast(SignalMast):
         
         logging.debug('  Mast %s is %s (%s over %s): %s',
             self._mast_name, aspect, upper_appearance, lower_appearance, reason)
+        upper_head_name = self._mast_name + '_upper'
+        lower_head_name = self._mast_name + '_lower'
         layout_handle.SetSignalHeadAppearance(
-            self._mast_name + '_upper',
+            upper_head_name,
             self._upper_head_address,
             upper_appearance)
         layout_handle.SetSignalHeadAppearance(
-            self._mast_name + '_lower', 
-            self._lower_head_address, 
+            lower_head_name, 
+            self._lower_head_address,
             lower_appearance)
+        if jmri_for_mem:
+            self._SetJMRIMemoryVariable(jmri_for_mem, upper_head_name, upper_appearance)
+            self._SetJMRIMemoryVariable(jmri_for_mem, lower_head_name, lower_appearance)
         return SignalSummary(
             aspect,
             SignalSummary.PrettyAppearance(upper_appearance, lower_appearance),

@@ -47,13 +47,12 @@ class JMRI(object):
 		logging.debug('Fetching JMRI JSON data from %s', url)
 		return json.load(urllib2.urlopen(url))
 
-	def _PostToJMRI(self, url, json_data):
+	def _PostToJMRI(self, url, json_data, create_on_404=False):
 		req = urllib2.Request(url, json_data, {'Content-Type': 'application/json'})
 		try:
 			f = urllib2.urlopen(req)
 		except Exception as err:
 			logging.error('JMRI POST failed: %s [%s]', err, url)
-			return
 		response = f.read()
 		f.close()
 		logging.debug('JMRI POST response: %s', response)
@@ -152,6 +151,17 @@ class JMRI(object):
 		logging.debug('Posting signal aspect change to %s: %s', url, json_data)
 		self._PostToJMRI(url, json_data)
 
+	def SetMemoryVar(self, var_name, value):
+		path = '/json/memory/' + var_name 
+		url = urlparse.urljoin(self._jmri_server_address, path)
+		json_data = json.dumps({
+			"type": "memory",
+			"data": {
+				"value": value,
+			}	
+		})
+		logging.info("Posting memory var to %s: %s", url, json_data)
+		self._PostToJMRI(url, json_data, create_on_404=False)
 
 class FakeJMRI(JMRI):
 	def __init__(self):

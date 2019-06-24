@@ -302,14 +302,18 @@ def Update(jmri_handle, openlcb_handle, reset_terminal=False):
 			mast = signal_masts_by_name[mast_name]
 			logging.debug('Configuring signal mast %s', mast)
 			if mast.PostToOpenlcb():
-				summary = mast.PutAspect(context, openlcb_handle)
+				summary = mast.PutAspect(context, layout_handle=openlcb_handle, jmri_for_mem=jmri_handle)
 			else:
-				summary = mast.PutAspect(context, jmri_handle)
+				summary = mast.PutAspect(context, layout_handle=jmri_handle, jmri_for_mem=jmri_handle)
 			table.add_row([str(mast), summary.aspect, summary.appearance, summary.reason])
+
+		signaling_mode_suffix = ' [Block Signaling]'
+		if signal_config._DispatchSignalingMode(context):
+			signaling_mode_suffix = ' [Dispatch Signaling]'
 
 		if reset_terminal:
 			print(chr(27) + "[2J")
-		print 'Signal Server Status'
+		print 'Signal Server Status' + signaling_mode_suffix
 		print table
 
 	except Exception as e:

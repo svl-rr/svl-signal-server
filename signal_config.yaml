@@ -150,7 +150,7 @@ igo_to_jacksonville_nb:
   routes:
     jacksonville_nb:
       requirements:
-      - sensor: Jacksonville NB
+      - sensor: JacksonvilleNB
       next_signal: jacksonville_nb_to_jerico
 
 igo_to_jacksonville_sb:
@@ -158,7 +158,7 @@ igo_to_jacksonville_sb:
   routes:
     jacksonville_sb:
       requirements:
-      - sensor: Jacksonville SB
+      - sensor: JacksonvilleSB
       next_signal: green
 
 hemet_dwarf:
@@ -181,7 +181,7 @@ hallelujah_to_igo:
       requirements:
       - turnout: NT250
         state: closed
-      - sensor: Igo NB
+      - sensor: IgoNB
       next_signal: igo_to_jacksonville_nb
       dispatch_control:
         memory_var: IMBA252  # Igo NB
@@ -192,10 +192,10 @@ hallelujah_to_igo:
       requirements:
       - turnout: NT250
         state: thrown
-      - sensor: Igo SB
+      - sensor: IgoSB
       dispatch_control:
         memory_var: IMBA253  # Igo SB
-        direction: SB
+        direction: NB
 
 fryton_main_to_greeley:
   head_address: 05.01.01.01.47.06.00.00
