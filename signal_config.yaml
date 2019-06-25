@@ -67,7 +67,7 @@ kalamazoo_front_to_jerico:
       - sensor: JerichoSB
       next_signal: green # jericho_to_jacksonville_sb
       dispatch_control:
-        memory_var: IMBA302  # kalamazoo -> Kaos, front road crossing track
+        memory_var: IMBA301  # jericho SB
         direction: SB
 
 jerico_nb_to_kaos:
@@ -152,6 +152,9 @@ igo_to_jacksonville_nb:
       requirements:
       - sensor: JacksonvilleNB
       next_signal: jacksonville_nb_to_jerico
+      dispatch_control:
+        memory_var: IMBA203
+        direction: NB
 
 igo_to_jacksonville_sb:
   head_address: None
@@ -160,6 +163,9 @@ igo_to_jacksonville_sb:
       requirements:
       - sensor: JacksonvilleSB
       next_signal: green
+      dispatch_control:
+        memory_var: IMBA202
+        direction: SB
 
 hemet_dwarf:
   head_address: 05.01.01.01.47.05.00.07
