@@ -53,6 +53,7 @@ class JMRI(object):
 			f = urllib2.urlopen(req)
 		except Exception as err:
 			logging.error('JMRI POST failed: %s [%s]', err, url)
+			return
 		response = f.read()
 		f.close()
 		logging.debug('JMRI POST response: %s', response)

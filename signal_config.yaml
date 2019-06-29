@@ -12,7 +12,7 @@ greeley_to_fryton:
         state: thrown  # we actually want it closed, but the switch is reversed.
       - sensor: FrytonMain
       - sensor: GreeleyFrytonSidingSwitch
-      next_signal: green
+      # next_signal: green
       dispatch_control:
         memory_var: IMBA174  # fryton main
         direction: SB
@@ -23,7 +23,7 @@ greeley_to_fryton:
         state: closed  # this is actually thrown; switch is reversed for some reason :(
       - sensor: GreeleyFrytonSidingSwitch
       - sensor: FrytonSiding
-      next_signal: green
+      # next_signal: green
       dispatch_control:
         memory_var: IMBA177  # fryton siding
         direction: SB
@@ -65,7 +65,7 @@ kalamazoo_front_to_jerico:
       - turnout: NT325
         state: closed
       - sensor: JerichoSB
-      next_signal: green # jericho_to_jacksonville_sb
+      # next_signal: green # jericho_to_jacksonville_sb
       dispatch_control:
         memory_var: IMBA301  # jericho SB
         direction: SB
@@ -84,7 +84,7 @@ jerico_nb_to_kaos:
         state: closed
       - turnout: NT327 # jasper
         state: thrown
-      next_signal: green
+      # next_signal: green
       dispatch_control:
         memory_var: IMBA331  # Loop NB
         direction: NB
@@ -97,7 +97,7 @@ jerico_nb_to_kaos:
         state: thrown
       - turnout: NT325  # xover
         state: closed
-      next_signal: green
+      # next_signal: green
 
 fryton_main_nb:
   upper_head_address: 2001
@@ -109,13 +109,13 @@ fryton_main_nb:
       - turnout: NT175
         state: closed
       - sensor: FrytonMain
-      next_signal: green
+      #next_signal: green
     siding:
       requirements:
       - turnout: NT175
         state: thrown
       - sensor: FrytonSiding
-      next_signal: green
+      #3next_signal: green
 
 igo_to_hallelujah_sb_main:
   head_address: 05.01.01.01.47.02.00.00
@@ -162,7 +162,7 @@ igo_to_jacksonville_sb:
     jacksonville_sb:
       requirements:
       - sensor: JacksonvilleSB
-      next_signal: green
+      # next_signal: green
       dispatch_control:
         memory_var: IMBA202
         direction: SB
@@ -270,7 +270,7 @@ greeley_to_hallelujah:
       requirements:
       - turnout: NT225
         state: thrown
-      next_signal: green
+      # next_signal: green
 
 hallelujah_to_greeley:
   upper_head_address: 05.01.01.01.47.05.00.23
