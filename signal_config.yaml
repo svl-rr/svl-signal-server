@@ -75,7 +75,7 @@ jerico_nb_to_kaos:
   lower_head_address: 2010
 
   routes:
-    kaos_main_to_loop:
+    kaos_main_to_loop_nb:
       requirements:
       - sensor: KaosMain
       - turnout: NT326  # kalamazoo rear track / kaos main
@@ -84,6 +84,24 @@ jerico_nb_to_kaos:
         state: closed
       - turnout: NT327 # jasper
         state: thrown
+      - turnout: NT328
+        state: closed  # Loop NB
+      # next_signal: green
+      dispatch_control:
+        memory_var: IMBA331  # Loop NB
+        direction: NB
+    kaos_main_to_loop_sb:
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT326  # kalamazoo rear track / kaos main
+        state: closed # to kaos main
+      - turnout: NT325  # xover
+        state: closed
+      - turnout: NT327 # jasper
+        state: thrown
+      - turnout: NT328
+        state: thrown  # Loop SB
+      is_diverging: true
       # next_signal: green
       dispatch_control:
         memory_var: IMBA331  # Loop NB
