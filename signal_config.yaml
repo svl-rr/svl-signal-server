@@ -42,18 +42,96 @@ greeley_to_fryton:
 #      state: thrown
 #    next_signal: green
 
-jacksonville_nb_to_jerico:
-  upper_head_address: 997
-  lower_head_address: 998
+jacksonville_to_jericho_front:
+  upper_head_address: 05.01.01.01.47.09.00.00
+  lower_head_address: 05.01.01.01.47.09.00.07
+
+  routes:
+    normal:
+      requirements:
+      - sensor: JerichoSB
+      next_signal: jericho_to_kaos_front
+      dispatch_control:
+        memory_var: IMBA301
+        direction: NB
+
+jacksonville_to_jericho_rear:
+  upper_head_address: 05.01.01.01.47.09.00.2A
+  lower_head_address: 05.01.01.01.47.09.00.1C
 
   routes:
     normal:
       requirements:
       - sensor: JerichoNB
-      next_signal: jerico_nb_to_kaos
+      next_signal: jericho_nb_to_kaos
       dispatch_control:
         memory_var: IMBA300
         direction: NB
+
+jacksonville_to_igo_rear:
+  lower_head_address: 1236
+  upper_head_address: 12367
+
+  routes:
+    normal:
+      requirements:
+      - sensor: IgoNB
+      - turnout: NT275 # jville xover, igo side
+        state: thrown  # reversed
+      - turnout: NT278  # jacksonville siding, igo side
+        state: thrown  # reversed :(
+      next_signal: igo_to_hallelujah_nb_main
+    xover:
+      requirements:
+      - sensor: IgoSB
+      - turnout: NT275
+        state: closed
+      - turnout: NT253  # to AQX
+        state: thrown  # reversed
+      next_signal: igo_to_hallelujah_sb_main
+      is_diverging: true
+
+jacksonville_to_igo_front:
+  head_address: 1235
+
+  routes:
+    normal:
+      requirements:
+      - sensor: IgoSB
+      - turnout: NT275 # jville xover, igo side
+        state: thrown  # reversed
+      - turnout: NT253  # to AQX
+        state: thrown  # reversed
+      next_signal: igo_to_hallelujah_sb_main
+
+jericho_to_jacksonville_rear:
+  upper_head_address: 05.01.01.01.47.09.00.15
+  lower_head_address: 05.01.01.01.47.09.00.23
+
+  routes:
+    normal:
+      requirements:
+      - sensor: JacksonvilleNB
+      - turnout: NT280
+        state: closed
+      - turnout: NT279
+        state: closed
+      next_signal: jacksonville_to_igo_rear
+      dispatch_control:
+        memory_var: IMBA203
+        direction: SB
+
+jericho_to_jacksonville_front:
+  head_address: 05.01.01.01.47.09.00.0E
+
+  routes:
+    normal:
+      requirements:
+      - sensor: JacksonvilleSB
+      next_signal: jacksonville_to_igo_front 
+      dispatch_control:
+        memory_var: IMBA202
+        direction: SB
 
 kalamazoo_front_to_jerico:
   upper_head_address: 1234
@@ -65,12 +143,12 @@ kalamazoo_front_to_jerico:
       - turnout: NT325
         state: closed
       - sensor: JerichoSB
-      # next_signal: green # jericho_to_jacksonville_sb
+      next_signal: jericho_to_jacksonville_front
       dispatch_control:
         memory_var: IMBA301  # jericho SB
         direction: SB
 
-jerico_nb_to_kaos:
+jericho_nb_to_kaos:
   upper_head_address: 2009
   lower_head_address: 2010
 
@@ -104,8 +182,8 @@ jerico_nb_to_kaos:
       is_diverging: true
       # next_signal: green
       dispatch_control:
-        memory_var: IMBA331  # Loop NB
-        direction: NB
+        memory_var: IMBA332  # Loop SB
+        direction: NB  # but going North
     to_kalamazoo_rear:
       is_diverging: true
       maximum_speed: slow
@@ -169,7 +247,7 @@ igo_to_jacksonville_nb:
     jacksonville_nb:
       requirements:
       - sensor: JacksonvilleNB
-      next_signal: jacksonville_nb_to_jerico
+      next_signal: jacksonville_to_jericho_rear
       dispatch_control:
         memory_var: IMBA203
         direction: NB
@@ -180,7 +258,7 @@ igo_to_jacksonville_sb:
     jacksonville_sb:
       requirements:
       - sensor: JacksonvilleSB
-      # next_signal: green
+      next_signal: jacksonville_to_jericho_front
       dispatch_control:
         memory_var: IMBA202
         direction: SB

@@ -14,6 +14,9 @@ import prettytable
 from lxml import etree
 import socket
 from threading import Thread, RLock
+from selenium import webdriver
+import sys
+import urlparse
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -323,11 +326,57 @@ def Update(jmri_handle, openlcb_handle, reset_terminal=False):
 		print ''
 
 
+def ScrapePanels(interval_sec):
+	driver = webdriver.Safari(quiet=True, keep_alive=False)
+	USER_PANELS = 'http://svl-jmri.local:3000/web/svg/userPanels/index.svg'
+	try:
+		driver.implicitly_wait(3)		
+		driver.get(USER_PANELS)
+		urls = set()
+		for link in driver.find_elements_by_tag_name('a'):
+			target = link.get_attribute('xlink:href')
+			if '.svg' not in target:
+				continue
+			url = urlparse.urljoin(USER_PANELS, target)
+			if url not in urls:
+				urls.add(url)
+				print 'Adding URL', url
+
+		USE_THREADS = False
+
+		if USE_THREADS:
+			threads = []
+			for url in urls:
+				t = Thread(target=Scrape, args=(url,))
+				t.daemon = True
+				t.start()
+				threads.append(t)
+
+			for t in threads:
+				t.join(10)
+		else:
+			for url in sorted(urls):
+				driver.get(url)
+				time.sleep(0.5)
+
+	except:
+		logging.exception('Webdriver failed')
+		#raise
+	finally:
+		driver.quit()
+
+def Scrape(url):
+	driver = webdriver.Safari(quiet=True, keep_alive=False)
+	driver.get(url)
+	time.sleep(2)
+
+
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--fake_jmri', type=bool, default=False)
 	parser.add_argument('--pretty', type=bool, default=False)
 	parser.add_argument('--output_xml', type=bool, default=False)
+	parser.add_argument('--scrape_panel_interval_sec', type=int, default=20)
 	args = parser.parse_args()
 
 	logging_args = {
@@ -351,6 +400,8 @@ def main():
 	# openlcb_network = openlcb_python.tcpolcblink.TcpToOlcbLink()
 	# openlcb_network.host = 'localhost'
 	# openlcb_network.port = 12021
+
+	ScrapePanels(interval_sec=args.scrape_panel_interval_sec)
 
 	openlcb_handle = OpenlcbLayoutHandle(None)
 
