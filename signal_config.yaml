@@ -276,7 +276,8 @@ hemet_dwarf:
       next_signal: hallelujah_to_greeley
 
 hallelujah_to_igo:
-  head_address: 05.01.01.01.47.02.00.0E
+  upper_head_address: 05.01.01.01.47.02.00.0E
+  lower_head_address: 05.01.01.01.47.02.00.15
 
   routes:
     nb:
