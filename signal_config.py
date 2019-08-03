@@ -286,14 +286,19 @@ class SignalRoute(object):
             if aspect not in [SIGNAL_STOP, SIGNAL_DARK, SIGNAL_RESTRICTING]:
                 aspect = SIGNAL_APPROACH
                 reason = '[slow-approach] ' + reason
+        elif self._maximum_speed == 'restricting':
+            if aspect not in [SIGNAL_STOP, SIGNAL_DARK]:
+                aspect = SIGNAL_RESTRICTING
+                reason = '[max-restricting] ' + reason
 
         # At this point, we have a non-stop aspect to return.
 
         # Lack of dispatch clearance should "obscure" this mast.
-        if _DispatchSignalingMode(context):
-            if not self._dispatch_config:
-                return SIGNAL_DARK, prefix + 'No dispatch config'
-
+        if _DispatchSignalingMode(context) and not self._dispatch_config:
+            return SIGNAL_DARK, prefix + 'No dispatch config'
+        elif _DispatchSignalingMode(context) and self._dispatch_config.ignore:
+            prefix += '[Ignoring Dispatch] '
+        elif _DispatchSignalingMode(context):
             logging.debug('  Can be configured by dispatch var %s when direction is "%s"',
                           self._dispatch_config.memory_var_name, self._dispatch_config.direction)
 
@@ -326,12 +331,13 @@ class SignalRoute(object):
 
 
 class DispatchConfig(object):
-    def __init__(self, memory_var_name, direction):
+    def __init__(self, memory_var_name, direction, ignore=False):
         # A system or user name of a JMRI memory
         # variable updated by the SVL Dispatcher.
         self.memory_var_name = memory_var_name
         # 'NB' or 'SB'.
         self.direction = direction
+        self.ignore = ignore
 
 
 def ParseRoute(route_name, route_config):
@@ -348,14 +354,19 @@ def ParseRoute(route_name, route_config):
     is_diverging = route_config.get('is_diverging', False)
     maximum_speed = route_config.get('maximum_speed')
     if maximum_speed:
-        allowed = ['slow']
+        allowed = ['slow', 'restricting']
         if maximum_speed not in allowed:
             raise AttributeError('%s has invalid maximum_speed; must be one of %s' % (route_name, allowed))
     dispatch_config = None
     dispatch_config_items = route_config.get('dispatch_control')
     if dispatch_config_items:
-        dispatch_config = DispatchConfig(dispatch_config_items['memory_var'],
-                                         dispatch_config_items['direction'])
+        if dispatch_config_items.get('ignore'):
+            dispatch_config = DispatchConfig('NO_MEMORY_VAR',
+                                             'NO_DIRECTION',
+                                             ignore=True)
+        else:
+            dispatch_config = DispatchConfig(dispatch_config_items['memory_var'],
+                                             dispatch_config_items['direction'])
 
     route = SignalRoute(route_config.get('next_signal'), is_diverging,
                         route_name=route_name, maximum_speed=maximum_speed,

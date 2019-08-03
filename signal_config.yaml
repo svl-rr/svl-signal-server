@@ -50,6 +50,8 @@ jacksonville_to_jericho_front:
     normal:
       requirements:
       - sensor: JerichoSB
+      - turnout: NT276  # jacksonville dark xover
+        state: thrown  # reversed :(
       next_signal: jericho_to_kaos_front
       dispatch_control:
         memory_var: IMBA301
@@ -63,10 +65,20 @@ jacksonville_to_jericho_rear:
     normal:
       requirements:
       - sensor: JerichoNB
+      - turnout: NT276  # jacksonville dark xover
+        state: thrown  # reversed :(
       next_signal: jericho_nb_to_kaos
       dispatch_control:
         memory_var: IMBA300
         direction: NB
+    dark_xover:
+      requirements:
+      - turnout: NT276
+        state: closed
+      maximum_speed: restricting
+      is_diverging: true
+      dispatch_control:
+        ignore: true
 
 jacksonville_to_igo_rear:
   lower_head_address: 1236
@@ -116,6 +128,8 @@ jericho_to_jacksonville_rear:
         state: closed
       - turnout: NT279
         state: closed
+      - turnout: NT276  # jacksonville dark xover
+        state: thrown  # reversed :(
       next_signal: jacksonville_to_igo_rear
       dispatch_control:
         memory_var: IMBA203
@@ -128,10 +142,20 @@ jericho_to_jacksonville_front:
     normal:
       requirements:
       - sensor: JacksonvilleSB
+      - turnout: NT276  # jacksonville dark xover
+        state: thrown  # reversed :(
       next_signal: jacksonville_to_igo_front 
       dispatch_control:
         memory_var: IMBA202
         direction: SB
+    dark_xover:
+      requirements:
+      - turnout: NT276
+        state: closed
+      maximum_speed: restricting
+      is_diverging: true
+      dispatch_control:
+        ignore: true
 
 kalamazoo_front_to_jerico:
   upper_head_address: 1234
