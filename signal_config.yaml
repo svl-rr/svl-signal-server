@@ -66,23 +66,23 @@ jacksonville_to_jericho_rear:
       requirements:
       - sensor: JerichoNB
       - turnout: NT276  # jacksonville dark xover
-        state: thrown  # reversed :(
+        state: thrown  # straight thru
       next_signal: jericho_nb_to_kaos
       dispatch_control:
         memory_var: IMBA300
         direction: NB
-    dark_xover:
-      requirements:
-      - turnout: NT276
-        state: closed
-      maximum_speed: restricting
-      is_diverging: true
-      dispatch_control:
-        ignore: true
+    # dark_xover:
+    #   requirements:
+    #   - turnout: NT276
+    #     state: closed
+    #   maximum_speed: restricting
+    #   is_diverging: true
+    #   dispatch_control:
+    #     ignore: true
 
 jacksonville_to_igo_rear:
-  lower_head_address: 1236
-  upper_head_address: 12367
+  lower_head_address: 05.01.01.01.47.0D.00.0E
+  upper_head_address: 05.01.01.01.47.0D.00.1C
 
   routes:
     normal:
@@ -104,7 +104,7 @@ jacksonville_to_igo_rear:
       is_diverging: true
 
 jacksonville_to_igo_front:
-  head_address: 1235
+  head_address: 05.01.01.01.47.0D.00.15
 
   routes:
     normal:
@@ -126,14 +126,23 @@ jericho_to_jacksonville_rear:
       - sensor: JacksonvilleNB
       - turnout: NT280
         state: closed
-      - turnout: NT279
-        state: closed
+      - turnout: NT279  # jville siding - jericho side
+        state: closed  # set to main
       - turnout: NT276  # jacksonville dark xover
-        state: thrown  # reversed :(
+        state: thrown  # straight-thru
       next_signal: jacksonville_to_igo_rear
       dispatch_control:
         memory_var: IMBA203
         direction: SB
+
+    into_jv_siding:
+      is_diverging: true
+      maximum_speed: slow
+      requirements:
+      - turnout: NT279  # jville siding - jericho side
+        state: thrown  # set to siding
+      - turnout: NT276  # jacksonville dark xover
+        state: thrown  # straight-thru
 
 jericho_to_jacksonville_front:
   head_address: 05.01.01.01.47.09.00.0E
@@ -264,28 +273,104 @@ igo_to_hallelujah_nb_main:
       dispatch_control:
         memory_var: IMBA179  # Hallelujah  Main
         direction: SB
+    hall_industry:
+      requirements:
+      - turnout: NT250
+        state: thrown  # to industry
+      dispatch_control:
+        ignore: true
+      is_diverging: true
+      maximum_speed: restricting
 
-igo_to_jacksonville_nb:
-  head_address: None
+igo_to_jacksonville_rear:
+  upper_head_address: 05.01.01.01.47.0D.00.00
+  lower_head_address: 05.01.01.01.47.0D.00.07
   routes:
-    jacksonville_nb:
+    jville_rear_main:
       requirements:
       - sensor: JacksonvilleNB
+      - turnout: NT278  # jville siding - igo side
+        state: thrown  # set for main
+      - turnout: NT279  # jville siding - jericho side
+        state: closed # set for main
+      - turnout: NT275  # jville-igo xover
+        state: thrown  # set for main
+      - turnout: NT276  # jville/jericho dark xover
+        state: thrown  # set for main
+      - turnout: NT280  # union coal
+        state: closed  # main
       next_signal: jacksonville_to_jericho_rear
       dispatch_control:
         memory_var: IMBA203
         direction: NB
+    jville_siding:
+      is_diverging: true
+      maximum_speed: slow
+      requirements:
+      - turnout: NT278  # jville siding - igo side
+        state: closed  # set for siding
+    jville_rear_main_until_siding:
+      maximum_speed: restricting
+      requirements:
+      - sensor: JacksonvilleNB
+      - turnout: NT278  # jville siding - igo side
+        state: thrown  # set for main
+      - turnout: NT279  # jville siding - jericho side
+        state: thrown # set for siding
+      - turnout: NT275  # jville-igo xover
+        state: thrown  # set for main
+      - turnout: NT276  # jville/jericho dark xover
+        state: thrown  # set for main
+    jville_rear_main_until_ucoal:
+      maximum_speed: restricting
+      is_diverging: true
+      requirements:
+      - sensor: JacksonvilleNB
+      - turnout: NT278  # jville siding - igo side
+        state: thrown  # set for main
+      - turnout: NT279  # jville siding - jericho side
+        state: closed # set for main
+      - turnout: NT275  # jville-igo xover
+        state: thrown  # set for main
+      - turnout: NT280  # union coal
+        state: thrown  # set to industry
 
-igo_to_jacksonville_sb:
-  head_address: None
+
+igo_to_jacksonville_front:
+  upper_head_address: 05.01.01.01.47.0D.00.31
+  lower_head_address: 05.01.01.01.47.0D.00.2A
+
   routes:
-    jacksonville_sb:
+    front_main:
       requirements:
       - sensor: JacksonvilleSB
+      - turnout: NT253  # to AQX
+        state: thrown  # set to main
+      - turnout: NT275  # xover
+        state: thrown  # actually normal
+      - turnout: NT276  # jville/jericho dark xover
+        state: thrown  # set for main
       next_signal: jacksonville_to_jericho_front
       dispatch_control:
         memory_var: IMBA202
         direction: SB
+    xover_to_rear_main:
+      is_diverging: true
+      requirements:
+      - sensor: JacksonvilleNB
+      - turnout: NT253  # to AQX
+        state: thrown  # set to main
+      - turnout: NT275  # xover
+        state: closed  # actually xover
+      - turnout: NT276  # jville/jericho dark xover
+        state: thrown  # set for main
+      next_signal: jacksonville_to_jericho_rear
+    to_aqx:
+      is_diverging: true
+      maximum_speed: restricting
+      requirements:
+      - turnout: NT253  # to AQX
+        state: closed  # set to AQX
 
 hemet_dwarf:
   head_address: 05.01.01.01.47.05.00.07
@@ -309,6 +394,8 @@ hallelujah_to_igo:
       - turnout: NT250
         state: closed
       - sensor: IgoNB
+      - turnout: NT251  # dark xover igo-hallelujah
+        state: thrown  # straight thru
       next_signal: igo_to_jacksonville_nb
       dispatch_control:
         memory_var: IMBA252  # Igo NB
@@ -320,6 +407,8 @@ hallelujah_to_igo:
       - turnout: NT250
         state: thrown
       - sensor: IgoSB
+      - turnout: NT251  # dark xover igo-hallelujah
+        state: thrown  # straight thru
       dispatch_control:
         memory_var: IMBA253  # Igo SB
         direction: NB
