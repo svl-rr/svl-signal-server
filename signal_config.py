@@ -431,7 +431,7 @@ def LoadConfig(config_file_path):
             raise AttributeError('Signal must define head_address or {upper,lower}_head_address')
 
         if 'routes' not in configuration:
-            raise AttribtueError('Signal mast %s is missing a "routes" stanza' % mast_name)
+            raise AttributeError('Signal mast %s is missing a "routes" stanza' % mast_name)
         for route_name, route_info in configuration['routes'].iteritems():
             signal.AddRoute(ParseRoute(route_name, route_info))
 
