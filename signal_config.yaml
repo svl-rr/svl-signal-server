@@ -67,7 +67,7 @@ jacksonville_to_jericho_rear:
       - sensor: JerichoNB
       - turnout: NT276  # jacksonville dark xover
         state: thrown  # straight thru
-      next_signal: jericho_nb_to_kaos
+      next_signal: jericho_to_kaos_rear
       dispatch_control:
         memory_var: IMBA300
         direction: NB
