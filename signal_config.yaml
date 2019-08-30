@@ -52,7 +52,7 @@ jacksonville_to_jericho_front:
       - sensor: JerichoSB
       - turnout: NT276  # jacksonville dark xover
         state: thrown  # reversed :(
-      next_signal: jericho_to_kaos_front
+      # next_signal: jericho_to_kaos_front
       dispatch_control:
         memory_var: IMBA301
         direction: NB
@@ -194,7 +194,7 @@ jericho_to_kaos_rear:
       - turnout: NT328
         state: closed  # Loop NB
       dispatch_control:
-        memory_var: IMBA331  # Loop NB
+        memory_var: IMBA330  # Kaos Main
         direction: NB
     kaos_main_to_loop_inside:
       requirements:
@@ -209,8 +209,8 @@ jericho_to_kaos_rear:
         state: thrown  # Loop SB
       is_diverging: true
       dispatch_control:
-        memory_var: IMBA332  # Loop SB
-        direction: NB  # but going North
+        memory_var: IMBA330  # Kaos Main
+        direction: NB
     to_kalamazoo_rear:
       is_diverging: true
       maximum_speed: slow
@@ -485,12 +485,12 @@ hallelujah_to_igo:
       - sensor: IgoNB
       - turnout: NT251  # dark xover igo-hallelujah
         state: thrown  # straight thru
-      next_signal: igo_to_jacksonville_nb
+      next_signal: igo_to_jacksonville_rear
       dispatch_control:
         memory_var: IMBA252  # Igo NB
         direction: NB
     sb:
-      next_signal: igo_to_jacksonville_sb
+      next_signal: igo_to_jacksonville_front
       is_diverging: true
       requirements:
       - turnout: NT250

@@ -271,13 +271,15 @@ class SignalRoute(object):
             next_mast_aspect = SIGNAL_CLEAR
             logging.debug('Next mast is hard-coded as CLEAR')
         else:
-            next_mast = context.masts.get(self._next_mast_name)
-            if next_mast:
+            if not self._next_mast_name:
+                next_mast_aspect = SIGNAL_DARK
+                logging.warning('No next mast configured; assuming dark')
+            else:
+                next_mast = context.masts.get(self._next_mast_name)
+                if not next_mast:
+                    raise AttributeError('Route %s has invalid next mast %s' % (self._route_name, self._next_mast_name))
                 next_mast_aspect, _ = next_mast.GetIntendedAspect(context)
                 logging.debug('Next mast is %s, which is %s', self._next_mast_name, next_mast_aspect)
-            else:
-                next_mast_aspect = SIGNAL_DARK
-                logging.warning('Next mast %s is unknown; assuming dark', self._next_mast_name)
         next_mast_aspect_pretty = next_mast_aspect.replace('SIGNAL_', '')
         aspect = _GetNextMostPermissiveAspect(next_mast_aspect)
         reason = 'OK to %s, which is %s' % (self._next_mast_name, next_mast_aspect_pretty)
