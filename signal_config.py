@@ -263,23 +263,28 @@ class SignalRoute(object):
         if self._route_name:
             prefix = '[%s] ' % self._route_name
 
+        # "Permissive" mode is when the SensorRequirements are all
+        # "occupied" but are allowed to be in "permissive" mode.
+        # Any occupied non-permissive SensorRequirement prevents
+        # permissive-mode.
+        route_occupied_permissive = False
         for i, req in enumerate(self._requirements):
-            if not req.IsSatisfied(context.turnout_state, context.sensor_state):
+            satisfied = req.IsSatisfied(context.turnout_state, context.sensor_state)
+            if not satisfied:
                 return None, 'Unsatisfied: %s' % req
+            if type(req) == SensorRequirement and satisfied == 'OCCUPIED_PERMISSIVE':
+                # The route will be "restricting" if all other requirements are satisfied.
+                route_occupied_permissive = True
         logging.debug('  All Requirements satisfied')
-        if self._next_mast_name == 'green':
-            next_mast_aspect = SIGNAL_CLEAR
-            logging.debug('Next mast is hard-coded as CLEAR')
+        if not self._next_mast_name:
+            next_mast_aspect = SIGNAL_DARK
+            logging.warning('No next mast configured; assuming dark')
         else:
-            if not self._next_mast_name:
-                next_mast_aspect = SIGNAL_DARK
-                logging.warning('No next mast configured; assuming dark')
-            else:
-                next_mast = context.masts.get(self._next_mast_name)
-                if not next_mast:
-                    raise AttributeError('Route %s has invalid next mast %s' % (self._route_name, self._next_mast_name))
-                next_mast_aspect, _ = next_mast.GetIntendedAspect(context)
-                logging.debug('Next mast is %s, which is %s', self._next_mast_name, next_mast_aspect)
+            next_mast = context.masts.get(self._next_mast_name)
+            if not next_mast:
+                raise AttributeError('Route %s has invalid next mast %s' % (self._route_name, self._next_mast_name))
+            next_mast_aspect, _ = next_mast.GetIntendedAspect(context)
+            logging.debug('Next mast is %s, which is %s', self._next_mast_name, next_mast_aspect)
         next_mast_aspect_pretty = next_mast_aspect.replace('SIGNAL_', '')
         aspect = _GetNextMostPermissiveAspect(next_mast_aspect)
         reason = 'OK to %s, which is %s' % (self._next_mast_name, next_mast_aspect_pretty)
@@ -292,6 +297,10 @@ class SignalRoute(object):
             if aspect not in [SIGNAL_STOP, SIGNAL_DARK]:
                 aspect = SIGNAL_RESTRICTING
                 reason = '[max-restricting] ' + reason
+
+        if route_occupied_permissive:
+            aspect = SIGNAL_RESTRICTING
+            reason = '[occupied-permissive] ' + reason
 
         # At this point, we have a non-stop aspect to return.
 
@@ -398,10 +407,11 @@ def ParseRoute(route_name, route_config):
             }.get(raw_state)
             if not state:
                 raise AttributeError('Invalid sensor state %s', raw_state)
-            logging.debug('  Parsed sensor requirement %s %s',
-                         sensor_name, state)
+            is_permissive = requirement.get('permissive', False)
+            logging.debug('  Parsed sensor requirement %s %s (permissive=%s)',
+                         sensor_name, state, is_permissive)
 
-            route.AddRequirement(SensorRequirement(sensor_name, state))
+            route.AddRequirement(SensorRequirement(sensor_name, state, is_permissive=is_permissive))
         else:
             raise AttributeError(
                 'Signal requirement must have turnout or sensor')

@@ -9,9 +9,10 @@ class Requirement(object):
 
 class SensorRequirement(Requirement):
 
-	def __init__(self, sensor_name, required_state):
+	def __init__(self, sensor_name, required_state, is_permissive=False):
 		self._sensor_name = sensor_name
 		self._required_state = required_state
+		self._is_permissive = is_permissive
 
 	def __str__(self):
 		return '{%s=%s}' % (self._sensor_name, self._required_state)
@@ -25,6 +26,9 @@ class SensorRequirement(Requirement):
 		if actual_sensor_state in [self._required_state, SENSOR_UNKNOWN]:
 			logging.debug('%s satisfied', self)
 			return True
+		if self._is_permissive:
+			logging.debug('%s occupied but permissive', self)
+			return 'OCCUPIED_PERMISSIVE'
 		logging.debug('%s not satisfied (actual state: %s)',
 					  self, actual_sensor_state)
 		return False
