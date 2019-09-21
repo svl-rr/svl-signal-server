@@ -314,6 +314,108 @@ kalamazoo_to_kaos_rear:
         memory_var: IMBA300  # jericho NB
         direction: NB
 
+loop_front_to_kaos:
+  upper_head_address: 05.01.01.01.47.0E.00.1C
+  lower_head_address: 05.01.01.01.47.0E.00.23
+
+  routes:
+    jasper:
+      is_diverging: true
+      maximum_speed: restricting
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT328  # bottom of loop
+        state: thrown
+      - turnout: NT327  # kaos -> jasper
+        state: closed  # to jasper
+      - turnout: NT330  # jasper -> klamath
+        state: closed  # to jasper
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: SB
+    jericho_rear:
+      is_diverging: true
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT328  # bottom of loop
+        state: thrown
+      - turnout: NT327  # kaos -> jasper
+        state: thrown  # to kaos
+      - turnout: NT326  # kalamazoo
+        state: closed  # kaos main
+      - turnout: NT325  # kaos xover
+        state: closed  # normal
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: SB
+      next_signal: jericho_to_jacksonville_rear
+    jericho_front:
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT328  # bottom of loop
+        state: thrown
+      - turnout: NT327  # kaos -> jasper
+        state: thrown  # to kaos
+      - turnout: NT326  # kalamazoo
+        state: closed  # kaos main
+      - turnout: NT325  # kaos xover
+        state: thrown  # xover
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: SB
+      next_signal: jericho_to_jacksonville_front
+
+loop_rear_to_kaos:
+  upper_head_address: 05.01.01.01.47.0E.00.0E
+  lower_head_address: 05.01.01.01.47.0E.00.15
+
+  routes:
+    jasper:
+      is_diverging: true
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT328  # bottom of loop
+        state: closed
+      - turnout: NT327  # kaos -> jasper
+        state: closed  # to jasper
+      - turnout: NT330  # jasper -> klamath
+        state: closed  # to jasper
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: SB
+      maximum_speed: restricting
+    jericho_rear:
+      is_diverging: true
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT328  # bottom of loop
+        state: closed
+      - turnout: NT327  # kaos -> jasper
+        state: thrown  # to kaos
+      - turnout: NT326  # kalamazoo
+        state: closed  # kaos main
+      - turnout: NT325  # kaos xover
+        state: closed  # normal
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: SB
+      next_signal: jericho_to_jacksonville_rear
+    jericho_front:
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT328  # bottom of loop
+        state: closed
+      - turnout: NT327  # kaos -> jasper
+        state: thrown  # to kaos
+      - turnout: NT326  # kalamazoo
+        state: closed  # kaos main
+      - turnout: NT325  # kaos xover
+        state: thrown  # xover
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: SB
+      next_signal: jericho_to_jacksonville_front
+
 # fryton_main_nb:
 #   upper_head_address: 2001
 #   lower_head_address: 2004
