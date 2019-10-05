@@ -84,6 +84,32 @@ ebbets_to_fryton:
         direction: NB
       next_signal: fryton_siding_to_greeley
 
+ebbetts_to_eagle:
+  upper_head_address: 05.01.01.01.47.0F.00.07
+  lower_head_address: 05.01.01.01.47.0F.00.00
+
+  routes:
+    normal:
+      requirements:
+      - sensor: LS5
+      dispatch_control:
+        memory_var: IMBA150  # eagle main
+        direction: SB
+      # next_signal: eagle_to_dayton
+
+eagle_to_ebbetts:
+  upper_head_address: 05.01.01.01.47.0F.00.23
+  lower_head_address: 05.01.01.01.47.0F.00.0E
+
+  routes:
+    normal:
+      requirements:
+        - sensor: LS5
+      # - sensor: EbbettsPass
+      next_signal: ebbets_to_fryton
+      dispatch_control:
+        memory_var: IMBA173  # Ebbetts main
+        direction: NB
 
 jacksonville_to_jericho_front:
   upper_head_address: 05.01.01.01.47.09.00.00
@@ -416,24 +442,6 @@ loop_rear_to_kaos:
         direction: SB
       next_signal: jericho_to_jacksonville_front
 
-# fryton_main_nb:
-#   upper_head_address: 2001
-#   lower_head_address: 2004
-
-#   routes:
-#     main:
-#       requirements:
-#       - turnout: NT175
-#         state: closed
-#       - sensor: FrytonMain
-#       #next_signal: green
-#     siding:
-#       requirements:
-#       - turnout: NT175
-#         state: thrown
-#       - sensor: FrytonSiding
-#       #3next_signal: green
-
 igo_to_hallelujah_sb_main:
   head_address: 05.01.01.01.47.02.00.00
 
@@ -704,7 +712,6 @@ greeley_to_hallelujah:
         memory_var: IMBA179  # Hallelujah Main
         direction: NB
     to_hemet:
-      # next_signal: none
       is_diverging: true
       maximum_speed: slow
       requirements:
@@ -724,7 +731,6 @@ greeley_to_hallelujah:
         state: thrown
       dispatch_control:
         ignore: true
-      # next_signal: green
 
 hallelujah_to_greeley:
   upper_head_address: 05.01.01.01.47.05.00.23
