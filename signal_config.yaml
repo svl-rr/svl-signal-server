@@ -34,12 +34,13 @@ fryton_main_to_ebbets:
     ebbets:
       requirements:
       - sensor: EbbetsFrytonSwitch
+      - sensor: EbbettsPass
       - turnout: NT175 # fryton -> ebbetts switch
         state: closed
       dispatch_control:
-        memory_var: IMBA173  # Ebbets
+        memory_var: IMBA173  # Ebbetts
         direction: SB
-      # next_signal: ebbets_to_escape
+      next_signal: ebbetts_to_eagle
 
 fryton_siding_to_ebbets:
   head_address: 05.01.01.01.47.08.00.1C
@@ -104,8 +105,7 @@ eagle_to_ebbetts:
   routes:
     normal:
       requirements:
-        - sensor: LS5
-      # - sensor: EbbettsPass
+      - sensor: EbbettsPass
       next_signal: ebbets_to_fryton
       dispatch_control:
         memory_var: IMBA173  # Ebbetts main
