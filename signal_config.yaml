@@ -121,7 +121,7 @@ jacksonville_to_jericho_front:
       - sensor: JerichoSB
       - turnout: NT276  # jacksonville dark xover
         state: thrown  # reversed :(
-      # next_signal: jericho_to_kaos_front
+      next_signal: jericho_to_kaos_front
       dispatch_control:
         memory_var: IMBA301
         direction: NB
@@ -245,6 +245,68 @@ jericho_to_jacksonville_front:
       is_diverging: true
       dispatch_control:
         ignore: true
+
+jericho_to_kaos_front:
+  upper_head_address: 05.01.01.01.47.0C.00.15
+  lower_head_address: 05.01.01.01.47.0C.00.0E
+
+  routes:
+    kaos_main_to_loop_outside:
+      requirements:
+      - sensor: KaosMain
+      - sensor: LoopOuter
+        permissive: true
+      - turnout: NT326  # kalamazoo rear track / kaos main
+        state: closed # to kaos main
+      - turnout: NT325  # xover
+        state: thrown
+      - turnout: NT327 # jasper
+        state: thrown
+      - turnout: NT328
+        state: closed  # Loop NB
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: NB
+    kaos_main_to_loop_inside:
+      requirements:
+      - sensor: KaosMain
+      - sensor: LoopInner
+        permissive: true
+      - turnout: NT326  # kalamazoo rear track / kaos main
+        state: closed # to kaos main
+      - turnout: NT325  # xover
+        state: thrown
+      - turnout: NT327 # jasper
+        state: thrown
+      - turnout: NT328
+        state: thrown  # Loop SB
+      is_diverging: true
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: NB
+    to_kalamazoo_rear:
+      is_diverging: true
+      maximum_speed: restricting
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT326 # kalamazoo rear track / kaos main
+        state: thrown
+      - turnout: NT325  # xover
+        state: thrown
+      dispatch_control:
+        memory_var: IMBA303
+        direction: NB 
+    to_kalamazoo_front:
+      maximum_speed: restricting
+      requirements:
+      - sensor: KaosMain
+      - turnout: NT326 # kalamazoo rear track / kaos main
+        state: thrown
+      - turnout: NT325  # xover
+        state: closed
+      dispatch_control:
+        memory_var: IMBA302  # kalamazoo front
+        direction: NB 
 
 jericho_to_kaos_rear:
   upper_head_address: 05.01.01.01.47.0C.00.00
