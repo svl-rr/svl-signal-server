@@ -360,6 +360,36 @@ jericho_to_kaos_rear:
         memory_var: IMBA303
         direction: NB
 
+jasper_dwarf:
+  head_address: 2002
+
+  routes:
+    to_loop_outside:
+      requirements:
+      - sensor: KaosMain
+      - sensor: LoopOuter
+        permissive: true
+      - turnout: NT327 # jasper
+        state: closed  # to jasper
+      - turnout: NT328
+        state: closed  # Loop NB
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: NB
+    to_loop_inside:
+      requirements:
+      - sensor: KaosMain
+      - sensor: LoopInner
+        permissive: true
+      - turnout: NT327 # jasper
+        state: closed  # to jasper
+      - turnout: NT328
+        state: thrown  # Loop SB
+      is_diverging: true
+      dispatch_control:
+        memory_var: IMBA330  # Kaos Main
+        direction: NB
+
 kalamazoo_to_kaos_front:
   head_address: 05.01.01.01.47.0C.00.1C
 
