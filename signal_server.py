@@ -28,6 +28,8 @@ SECONDS_BETWEEN_POLLS = 1.5
 # from freshly-booted nodes.
 SECONDS_BETWEEN_FULL_LCC_CACHE_BROADCAST = None
 
+SCRAPE_PANELS_ON_STARTUP = False
+
 # TODO: JMRI handle should be passed in to SignalMast __init__.
 
 
@@ -88,12 +90,12 @@ def OutputXML():
 	signal_masts_by_name = signal_config.LoadConfig(SIGNAL_CONFIG_FILE)
 	signalheads = etree.Element('signalheads')
 	for name, mast in signal_masts_by_name.iteritems():
-		if type(mast) == signal_config.DoubleHeadMast:
+		if type(mast) == signal_config.DoubleHeadTriLightMast:
 			upper = _SignalHeadTree(mast._upper_head_address, mast._mast_name + '_upper')
 			signalheads.append(upper)
 			lower = _SignalHeadTree(mast._lower_head_address, mast._mast_name + '_lower')
 			signalheads.append(lower)
-		elif type(mast) == signal_config.SingleHeadMast:
+		elif type(mast) == signal_config.SingleHeadTriLightMast:
 			signalheads.append(_SignalHeadTree(mast._head_address, mast._mast_name))
 
 	print etree.tostring(signalheads, pretty_print=True)
@@ -102,8 +104,9 @@ def OutputXML():
 class OpenlcbLayoutHandle(object):
 	def __init__(self, openlcb_network):
 		self._network = openlcb_network
-		self._s = None
 		self._s_lock = RLock()
+		self._s = None
+		self._InitSocket()
 		# {mast_name -> (first_eventid, appearance)}
 		self._cache = {}
 		self._last_broadcast_time = time.time()
@@ -111,6 +114,13 @@ class OpenlcbLayoutHandle(object):
 		self._recv_thread.daemon = True
 		self._recv_thread.start()
 		self._rcv_data = ''
+
+	def _InitSocket(self):
+		logging.info('Initializing socket')
+		if self._s: del self._s
+		self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self._s.settimeout(1.0)
+		self._s.connect(('localhost', 12021))
 
 	def _RemoveJunk(self, eventid):
 		return (eventid
@@ -231,7 +241,7 @@ class OpenlcbLayoutHandle(object):
 		logging.info('Broadcasting cache!')
 		self._BroadcastCache()
 
-	def SetSignalHeadAppearance(self, mast_name, head_first_eventid, appearance, ignore_cache=False):
+	def SetTriLightSignalHeadAppearance(self, mast_name, head_first_eventid, appearance, ignore_cache=False):
 		if not ignore_cache:
 			if self._cache.get(mast_name) == (head_first_eventid, appearance):
 				logging.debug('  Aspect of %s is already %s', mast_name, appearance)
@@ -261,32 +271,51 @@ class OpenlcbLayoutHandle(object):
 		self._Send(can_frame)
 		self._cache[mast_name] = (head_first_eventid, appearance)
 
+	def SetLampAppearance(self, lamp_first_eventid, appearance, ignore_cache=False):
+		assert appearance in ["ON", "FLASHING", "OFF"]
+
+		if not ignore_cache:
+			if self._cache.get(lamp_first_eventid) == appearance:
+				logging.debug('  Appearance of lamp at address %s is already %s', lamp_first_eventid, appearance)
+				return
+
+		logging.debug('CPL Appearance')
+		event_offset = {
+			"ON": 0,
+			"FLASHING": 1,
+			"OFF": 2,
+		}.get(appearance, 2)
+
+		first_eventid = self._RemoveJunk(lamp_first_eventid)
+		logging.debug("  Lamp's first EventId: %s", first_eventid)
+		appearance_eventid = hex(int(first_eventid, base=16)+event_offset)
+		# strip 0x from the front
+		appearance_eventid = str(appearance_eventid)[2:].upper()
+		# left pad with 0 until len matches original
+		appearance_eventid = appearance_eventid.rjust(len(first_eventid), '0')
+		logging.debug('  Appearance eventid: %s (first+%s)', appearance_eventid, event_offset)
+
+		# TODO: get rid of this magic prefix for "send an eventid"
+		can_frame = ':X195B46ADN{};\n'.format(
+			self._RemoveJunk(appearance_eventid))
+		self._Send(can_frame)
+		self._cache[lamp_first_eventid] = appearance
+
 	def _Send(self, frame):
 		with self._s_lock:
 			logging.info('  Sending LCC CAN packet %s', frame)
-			try:
-				if not self._s:
-					self._InitSocket()
-			except:
-				self._InitSocket()
 			try:
 				err = self._s.sendall(frame)
 			except Exception as e:
 				err = e
 			if err is not None:
-				del self._s
-				raise RuntimeError('Send to socket failed: %s' % err)
-
-	def _InitSocket(self):
-		del self._s
-		self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self._s.settimeout(1.0)
-		self._s.connect(('localhost', 12021))
+				logging.exception('Send to socket failed', err)
+				self._InitSocket()
 
 	def _BroadcastCache(self):
 		logging.info('Time to rebroadcast LCC cache')
 		for mast_name, (first_eventid, appearance) in self._cache.iteritems():
-			self.SetSignalHeadAppearance(mast_name, first_eventid, appearance, ignore_cache=True)
+			self.SetTriLightSignalHeadAppearance(mast_name, first_eventid, appearance, ignore_cache=True)
 
 
 def Update(jmri_handle, openlcb_handle, reset_terminal=False):
@@ -381,7 +410,7 @@ def main():
 
 	logging_args = {
 		'format': '%(asctime)s %(filename)s:%(lineno)d %(message)s',
-		'level': logging.INFO,
+		'level': logging.DEBUG,
 	}
 	# if args.pretty or args.output_xml:
 	logging_args['filename'] = '/var/log/svl_signal_server.log'
@@ -401,7 +430,8 @@ def main():
 	# openlcb_network.host = 'localhost'
 	# openlcb_network.port = 12021
 
-	ScrapePanels(interval_sec=args.scrape_panel_interval_sec)
+	if SCRAPE_PANELS_ON_STARTUP:
+		ScrapePanels(interval_sec=args.scrape_panel_interval_sec)
 
 	openlcb_handle = OpenlcbLayoutHandle(None)
 

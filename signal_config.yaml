@@ -48,6 +48,7 @@ fryton_siding_to_ebbets:
     ebbets:
       requirements:
       - sensor: EbbetsFrytonSwitch
+      - sensor: EbbettsPass
       - turnout: NT175 # fryton -> ebbetts switch
         state: thrown
       is_diverging: true
@@ -92,11 +93,11 @@ ebbetts_to_eagle:
   routes:
     normal:
       requirements:
-      - sensor: LS5
+      - sensor: Eagle
       dispatch_control:
         memory_var: IMBA150  # eagle main
         direction: SB
-      # next_signal: eagle_to_dayton
+      next_signal: eagle_to_dayton
 
 eagle_to_ebbetts:
   upper_head_address: 05.01.01.01.47.0F.00.23
@@ -110,6 +111,75 @@ eagle_to_ebbetts:
       dispatch_control:
         memory_var: IMBA173  # Ebbetts main
         direction: NB
+
+eagle_to_dayton:
+  upper_head_address: 05.01.01.01.47.10.00.0E
+  lower_head_address: 05.01.01.01.47.10.00.15
+
+  routes:
+    main:
+      requirements:
+      - turnout: NT126  # main turnout, eagle side
+        state: closed
+      - turnout: NT150
+        state: closed  # dayton industry
+    interchange:
+      is_diverging: true
+      maximum_speed: restricting
+      requirements:
+      - turnout: NT126  # main turnout, eagle side
+        state: thrown  # onto ladder
+      - turnout: NT127  # ladder to interchange
+        state: thrown
+    siding:
+      is_diverging: true
+      requirements:
+      - turnout: NT126  # main turnout, eagle side
+        state: thrown  # onto ladder
+      - turnout: NT127  # ladder to interchange
+        state: closed  # more ladder
+      - turnout: NT128  # double slip
+        state: thrown  # to ladder (not branch)
+      - turnout: NT129
+        state: thrown  # to siding (not bakersfield)
+      - turnout: NT130  # interchange xover
+        state: closed  # thru
+      - turnout: NT131  # interchange xover
+        state: closed  # thru
+    # TODO: To Bakersfield
+
+
+dayton_main_to_eagle:
+  green_lamp_first_eventid: 05.01.01.01.47.0A.00.0C
+  yellow_lamp_first_eventid: 05.01.01.01.47.0A.00.0F
+  red_lamp_first_eventid: 05.01.01.01.47.0A.00.12
+  lunar_lamp_first_eventid: 05.01.01.01.47.0A.00.09
+
+  routes:
+    normal:
+      requirements:
+      - turnout: NT126  # main onto ladder
+        state: closed
+      - sensor: Eagle
+      next_signal: eagle_to_ebbetts
+
+dayton_interchange_to_eagle:
+  green_lamp_first_eventid: 05.01.01.01.47.0A.00.00
+  yellow_lamp_first_eventid: 05.01.01.01.47.0A.00.06
+  red_lamp_first_eventid: 05.01.01.01.47.0A.00.15
+  lunar_lamp_first_eventid: 05.01.01.01.47.0A.00.03
+
+  routes:
+    xchg:
+      requirements:
+      - turnout: NT126  # main onto ladder
+        state: thrown
+      - turnout: NT127  # ladder onto interchange
+        state: thrown
+      - sensor: Eagle
+      is_diverging: true
+      maximum_speed: restricting
+      next_signal: eagle_to_ebbetts
 
 jacksonville_to_jericho_front:
   upper_head_address: 05.01.01.01.47.09.00.00
@@ -854,3 +924,26 @@ greeley_papermill_dwarf:
       dispatch_control:
         memory_var: IMBA178  # Greeley Main
         direction: SB
+
+mtmarvell_to_loop:
+  upper_head_address: 0
+  lower_head_address: 0
+
+  routes:
+    loop_inner:
+      requirements:
+      - turnout: NT329
+        state: thrown
+      - sensor: LoopInner
+      permissive: true
+      next_signal: loop_front_to_kaos
+
+    loop_outer:
+      requirements:
+      - turnout: NT329
+        state: closed
+      - sensor: LoopOuter
+      permissive: true
+      is_diverging: true
+      next_signal: loop_rear_to_kaos
+

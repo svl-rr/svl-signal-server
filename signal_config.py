@@ -126,9 +126,56 @@ class SignalMast(object):
         raise NotImplementedError
 
 
-class SingleHeadMast(SignalMast):
+class SingleHeadCPLMast(SignalMast):
+    def __init__(self, mast_name, green_addr, yellow_addr, red_addr, lunar_addr):
+        super(SingleHeadCPLMast, self).__init__(mast_name)
+        self._green_address = green_addr
+        self._yellow_address = yellow_addr
+        self._red_address = red_addr
+        self._lunar_address = lunar_addr
+
+    def PostToOpenlcb(self):
+        return True
+
+    def GetAppearance(cls, aspect):
+        if aspect in [SIGNAL_RESTRICTING, SIGNAL_DIVERGING_RESTRICTING]:
+            return HEAD_LUNAR
+        return SingleHeadTriLightMast.GetAppearance(aspect)
+
+    def PutAspect(self, context, layout_handle, jmri_for_mem=None):
+        aspect, reason = self.GetIntendedAspect(context)
+        appearance = self.GetAppearance(aspect)
+        logging.debug('  %s mapped aspect %s to %s [%s]',
+            self._mast_name, aspect, appearance, reason)
+
+        # Turn off all the other lights and set the light we want.
+        # Only one color will be lit at a time (same as tri-light single-head).
+        is_flashing = appearance.startswith('FLASHING')
+        color_name_to_addr = {
+            'RED': self._red_address,
+            'YELLOW': self._yellow_address,
+            'GREEN': self._green_address,
+            'LUNAR': self._lunar_address,
+        }
+
+        address_of_only_color = None
+        for color_name, address in color_name_to_addr.items():
+            if color_name in appearance:
+                layout_handle.SetLampAppearance(address, "FLASHING" if is_flashing else "ON")
+            else:
+                layout_handle.SetLampAppearance(address, "OFF")
+
+        if jmri_for_mem:
+            self._SetJMRIMemoryVariable(jmri_for_mem, self._mast_name, appearance)
+        return SignalSummary(
+            aspect,
+            SignalSummary.PrettyAppearance(appearance),
+            reason)
+
+
+class SingleHeadTriLightMast(SignalMast):
     def __init__(self, mast_name, head_address):
-        super(SingleHeadMast, self).__init__(mast_name)
+        super(SingleHeadTriLightMast, self).__init__(mast_name)
         self._head_address = head_address
 
     def PostToOpenlcb(self):
@@ -167,7 +214,7 @@ class SingleHeadMast(SignalMast):
         appearance = self.GetAppearance(aspect)
         logging.debug('  %s mapped aspect %s to %s [%s]',
             self._mast_name, aspect, appearance, reason)
-        layout_handle.SetSignalHeadAppearance(self._mast_name, self._head_address, appearance)
+        layout_handle.SetTriLightSignalHeadAppearance(self._mast_name, self._head_address, appearance)
         if jmri_for_mem:
             self._SetJMRIMemoryVariable(jmri_for_mem, self._mast_name, appearance)
         return SignalSummary(
@@ -176,11 +223,11 @@ class SingleHeadMast(SignalMast):
             reason)
 
 
-class DoubleHeadMast(SignalMast):
+class DoubleHeadTriLightMast(SignalMast):
     def __init__(
             self, mast_name,
             upper_head_address, lower_head_address):
-        super(DoubleHeadMast, self).__init__(mast_name)
+        super(DoubleHeadTriLightMast, self).__init__(mast_name)
         self._upper_head_address = upper_head_address
         self._lower_head_address = lower_head_address
 
@@ -215,7 +262,7 @@ class DoubleHeadMast(SignalMast):
             lower_appearance = HEAD_GREEN
         else:
             # Same as normal signal mast, but over red (except dark).
-            upper_appearance = SingleHeadMast.GetAppearance(aspect)
+            upper_appearance = SingleHeadTriLightMast.GetAppearance(aspect)
             if upper_appearance == HEAD_DARK:
                 lower_appearance = HEAD_DARK
         
@@ -223,11 +270,11 @@ class DoubleHeadMast(SignalMast):
             self._mast_name, aspect, upper_appearance, lower_appearance, reason)
         upper_head_name = self._mast_name + '_upper'
         lower_head_name = self._mast_name + '_lower'
-        layout_handle.SetSignalHeadAppearance(
+        layout_handle.SetTriLightSignalHeadAppearance(
             upper_head_name,
             self._upper_head_address,
             upper_appearance)
-        layout_handle.SetSignalHeadAppearance(
+        layout_handle.SetTriLightSignalHeadAppearance(
             lower_head_name, 
             self._lower_head_address,
             lower_appearance)
@@ -428,7 +475,7 @@ def LoadConfig(config_file_path):
             head = configuration['head_address']
             logging.debug('  Mast %s configured with single head %s',
                 mast_name, head)
-            signal = SingleHeadMast(mast_name, head)
+            signal = SingleHeadTriLightMast(mast_name, head)
             del configuration['head_address']
         elif 'upper_head_address' in configuration:
             if 'lower_head_address' not in configuration:
@@ -436,11 +483,28 @@ def LoadConfig(config_file_path):
             upper = configuration['upper_head_address']
             lower = configuration['lower_head_address']
             logging.debug('  Mast %s configured with heads %s + %s', mast_name, upper, lower)
-            signal = DoubleHeadMast(mast_name, upper, lower)
+            signal = DoubleHeadTriLightMast(mast_name, upper, lower)
             del configuration['upper_head_address']
             del configuration['lower_head_address']
+        elif 'green_lamp_first_eventid' in configuration:
+            # This mast's lamps are all controlled separately.
+            for lamp_color in 'green', 'yellow', 'red', 'lunar':
+                config_item_name = lamp_color + '_lamp_first_eventid'
+                if config_item_name not in configuration:
+                    raise AttributeError('CPL mast must define %s' % config_item_name)
+            signal = SingleHeadCPLMast(
+                mast_name,
+                green_addr=configuration['green_lamp_first_eventid'],
+                yellow_addr=configuration['yellow_lamp_first_eventid'],
+                red_addr=configuration['red_lamp_first_eventid'],
+                lunar_addr=configuration['lunar_lamp_first_eventid'])
+            del configuration['green_lamp_first_eventid']
+            del configuration['yellow_lamp_first_eventid']
+            del configuration['red_lamp_first_eventid']
+            del configuration['lunar_lamp_first_eventid']
+
         else:
-            raise AttributeError('Signal must define head_address or {upper,lower}_head_address')
+            raise AttributeError('Signal must define head_address, {upper,lower}_head_address, {color}_lamp_first_eventid')
 
         if 'routes' not in configuration:
             raise AttributeError('Signal mast %s is missing a "routes" stanza' % mast_name)

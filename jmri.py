@@ -114,7 +114,7 @@ class JMRI(object):
 		logging.debug('Fetched %d memory values', len(memory_states))
 		return memory_states
 
-	def SetSignalHeadAppearance(self, head_name, unused_address, appearance):
+	def SetTriLightSignalHeadAppearance(self, head_name, unused_address, appearance):
 		jmri_number = HEAD_ENUM_TO_JMRI_NUMBER.get(appearance, -1)
 		if jmri_number == -1:
 			raise RuntimeError('Appearance %s invalid' % appearance)
