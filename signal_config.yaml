@@ -181,6 +181,64 @@ dayton_interchange_to_eagle:
       maximum_speed: restricting
       next_signal: eagle_to_ebbetts
 
+dayton_siding_to_eagle:
+  upper_head_address: 0
+  lower_head_address: 0
+
+  routes:
+    eagle:
+      requirements:
+      - turnout: NT129  # double slip
+        state: thrown
+      - turnout: NT128  # double slip
+        state: thrown
+      - turnout: NT127  # on ladder
+        state: closed
+      - turnout: NT126  # on ladder
+        state: thrown
+      next_signal: eagle_to_ebbetts
+    branch:
+      is_diverging: true
+      maximum_speed: restricting
+      requirements:
+      - turnout: NT129  # double slip
+        state: thrown
+      - turnout: NT128  # double slip
+        state: closed
+bakersfield_to_eagle:
+  upper_head_address: 0
+  lower_head_address: 0
+
+  routes:
+    branch:
+      is_diverging: true
+      maximum_speed: restricting
+      requirements:
+      - turnout: NT129
+        state: closed
+      - turnout: NT128
+        state: closed
+    eagle:
+      requirements:
+      - turnout: NT129
+        state: closed
+      - turnout: NT128
+        state: thrown
+      - turnout: NT127
+        state: closed
+      - turnout: NT126
+        state: closed
+
+branch_to_dayton:
+  head_address: 0
+
+  routes: 
+    ok:
+      requirements:
+      - turnout: NT128
+        state: closed
+      maximum_speed: slow
+
 jacksonville_to_jericho_front:
   upper_head_address: 05.01.01.01.47.09.00.00
   lower_head_address: 05.01.01.01.47.09.00.07
