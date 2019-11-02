@@ -162,6 +162,9 @@ dayton_main_to_eagle:
         state: closed
       - sensor: Eagle
       next_signal: eagle_to_ebbetts
+      dispatch_control:
+        memory_var: IMBA150  # eagle main
+        direction: NB
 
 dayton_interchange_to_eagle:
   green_lamp_first_eventid: 05.01.01.01.47.0A.00.00
@@ -180,6 +183,9 @@ dayton_interchange_to_eagle:
       is_diverging: true
       maximum_speed: restricting
       next_signal: eagle_to_ebbetts
+      dispatch_control:
+        memory_var: IMBA150  # eagle main
+        direction: NB
 
 dayton_siding_to_eagle:
   upper_head_address: 0
@@ -276,6 +282,18 @@ jacksonville_to_jericho_rear:
     #   is_diverging: true
     #   dispatch_control:
     #     ignore: true
+
+jacksonville_siding_to_igo_dwarf:
+  head_address: 05.01.01.01.47.0D.00.23
+
+  routes:
+    onto_rear_main:
+      requirements:
+      - sensor: IgoNB
+      - turnout: NT278
+        state: closed
+      is_diverging: true
+      next_signal: igo_to_hallelujah_nb_main
 
 jacksonville_to_igo_rear:
   lower_head_address: 05.01.01.01.47.0D.00.0E
@@ -489,7 +507,7 @@ jericho_to_kaos_rear:
         direction: NB
 
 jasper_dwarf:
-  head_address: 2002
+  head_address: 05.01.01.01.47.0C.00.23
 
   routes:
     to_loop_outside:
