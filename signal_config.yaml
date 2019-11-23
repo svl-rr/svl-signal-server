@@ -1001,6 +1001,24 @@ greeley_papermill_dwarf:
         memory_var: IMBA178  # Greeley Main
         direction: SB
 
+loop_inner_to_mtmarvell:
+  head_address: 0
+  routes:
+    loop_inner:
+      requirements:
+      - turnout: NT329
+        state: thrown
+      - sensor: MtMarvell
+
+loop_outer_to_mtmarvell:
+  head_address: 0
+  routes:
+    loop_outer:
+      requirements:
+      - turnout: NT329
+        state: closed
+      - sensor: MtMarvell
+
 mtmarvell_to_loop:
   upper_head_address: 0
   lower_head_address: 0

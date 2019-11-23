@@ -116,11 +116,14 @@ class OpenlcbLayoutHandle(object):
 		self._rcv_data = ''
 
 	def _InitSocket(self):
-		logging.info('Initializing socket')
-		if self._s: del self._s
-		self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self._s.settimeout(1.0)
-		self._s.connect(('localhost', 12021))
+		logging.info('Initializing OpenLCB Hub socket')
+		try:
+			if self._s: del self._s
+			self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			self._s.settimeout(1.0)
+			self._s.connect(('localhost', 12021))
+		except:
+			logging.exception("Error initializing OLCB socket")
 
 	def _RemoveJunk(self, eventid):
 		return (eventid
