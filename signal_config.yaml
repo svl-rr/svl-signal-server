@@ -146,7 +146,17 @@ eagle_to_dayton:
         state: closed  # thru
       - turnout: NT131  # interchange xover
         state: closed  # thru
-    # TODO: To Bakersfield
+    bakersfield: # To Bakersfield
+      is_diverging: true
+      requirements:
+      - turnout: NT126  # main turnout, eagle side
+        state: thrown  # onto ladder
+      - turnout: NT127  # ladder to interchange
+        state: closed  # more ladder
+      - turnout: NT128  # double slip
+        state: thrown  # to ladder (not branch)
+      - turnout: NT129
+        state: closed  # to siding (not bakersfield)
 
 
 dayton_main_to_eagle:
@@ -188,11 +198,13 @@ dayton_interchange_to_eagle:
         direction: NB
 
 dayton_siding_to_eagle:
-  upper_head_address: 0
-  lower_head_address: 0
+  upper_head_address: 05.01.01.01.47.10.00.00
+  lower_head_address: 05.01.01.01.47.10.00.07
 
   routes:
     eagle:
+      is_diverging: true
+      maximum_speed: slow
       requirements:
       - turnout: NT129  # double slip
         state: thrown
@@ -211,9 +223,10 @@ dayton_siding_to_eagle:
         state: thrown
       - turnout: NT128  # double slip
         state: closed
+
 bakersfield_to_eagle:
-  upper_head_address: 0
-  lower_head_address: 0
+  upper_head_address: 05.01.01.01.47.10.00.31
+  lower_head_address: 05.01.01.01.47.10.00.2A
 
   routes:
     branch:
@@ -225,6 +238,7 @@ bakersfield_to_eagle:
       - turnout: NT128
         state: closed
     eagle:
+      is_diverging: true
       requirements:
       - turnout: NT129
         state: closed
@@ -233,10 +247,10 @@ bakersfield_to_eagle:
       - turnout: NT127
         state: closed
       - turnout: NT126
-        state: closed
+        state: thrown
 
 branch_to_dayton:
-  head_address: 0
+  head_address: 05.01.01.01.47.10.00.1C
 
   routes: 
     ok:
@@ -413,6 +427,7 @@ jericho_to_kaos_front:
       dispatch_control:
         memory_var: IMBA330  # Kaos Main
         direction: NB
+      next_signal: loop_outer_to_mtmarvell
     kaos_main_to_loop_inside:
       requirements:
       - sensor: KaosMain
@@ -430,6 +445,7 @@ jericho_to_kaos_front:
       dispatch_control:
         memory_var: IMBA330  # Kaos Main
         direction: NB
+      next_signal: loop_inner_to_mtmarvell
     to_kalamazoo_rear:
       is_diverging: true
       maximum_speed: restricting
@@ -475,6 +491,7 @@ jericho_to_kaos_rear:
       dispatch_control:
         memory_var: IMBA330  # Kaos Main
         direction: NB
+      next_signal: loop_outer_to_mtmarvell
     kaos_main_to_loop_inside:
       requirements:
       - sensor: KaosMain
@@ -493,6 +510,7 @@ jericho_to_kaos_rear:
       dispatch_control:
         memory_var: IMBA330  # Kaos Main
         direction: NB
+      next_signal: loop_inner_to_mtmarvell
     to_kalamazoo_rear:
       is_diverging: true
       maximum_speed: restricting
