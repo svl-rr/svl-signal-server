@@ -1026,7 +1026,10 @@ loop_inner_to_mtmarvell:
       requirements:
       - turnout: NT329
         state: thrown
-      - sensor: MtMarvell
+#      - sensor: MtMarvell  # sensor is flaky
+      dispatch_control:
+        memory_var: IMBA450   # MtMarvell Main
+        direction: NB
 
 loop_outer_to_mtmarvell:
   head_address: 0
@@ -1035,7 +1038,10 @@ loop_outer_to_mtmarvell:
       requirements:
       - turnout: NT329
         state: closed
-      - sensor: MtMarvell
+#      - sensor: MtMarvell  # sensor is flaky
+      dispatch_control:
+        memory_var: IMBA450   # Mt Marvell Main
+        direction: NB
 
 mtmarvell_to_loop:
   upper_head_address: 0
@@ -1049,6 +1055,9 @@ mtmarvell_to_loop:
       - sensor: LoopInner
       permissive: true
       next_signal: loop_front_to_kaos
+      dispatch_control:
+        memory_var: IMBA448  # inner loop upper half
+        direction: SB
 
     loop_outer:
       requirements:
@@ -1058,4 +1067,7 @@ mtmarvell_to_loop:
       permissive: true
       is_diverging: true
       next_signal: loop_rear_to_kaos
+      dispatch_control:
+        memory_var: IMBA449  # outer loop upper half
+        direction: SB
 
