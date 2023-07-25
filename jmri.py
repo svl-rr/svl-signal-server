@@ -1,7 +1,7 @@
 
 import json
-import urllib2
-import urlparse
+import urllib.request
+import urllib.parse
 import logging
 
 from enums import *
@@ -43,14 +43,14 @@ class JMRI(object):
 	def _GetJsonData(self, url_path):
 		# JMRI JSON docs:
 		# http://jmri.sourceforge.net/help/en/html/web/JsonServlet.shtml
-		url = urlparse.urljoin(self._jmri_server_address, url_path)
+		url = urllib.parse.urljoin(self._jmri_server_address, url_path)
 		logging.debug('Fetching JMRI JSON data from %s', url)
-		return json.load(urllib2.urlopen(url))
+		return json.load(urllib.request.urlopen(url))
 
 	def _PostToJMRI(self, url, json_data, create_on_404=False):
-		req = urllib2.Request(url, json_data, {'Content-Type': 'application/json'})
+		req = urllib.request.Request(url, json_data.encode(), {'Content-Type': 'application/json'})
 		try:
-			f = urllib2.urlopen(req)
+			f = urllib.request.urlopen(req)
 		except Exception as err:
 			logging.error('JMRI POST failed: %s [%s]', err, url)
 			return
@@ -119,7 +119,7 @@ class JMRI(object):
 		if jmri_number == -1:
 			raise RuntimeError('Appearance %s invalid' % appearance)
 		path = '/json/signalHead/' + head_name
-		url = urlparse.urljoin(self._jmri_server_address, path)
+		url = urllib.parse.urljoin(self._jmri_server_address, path)
 
 		json_data = json.dumps({
 			"type": "signalHead",
@@ -140,7 +140,7 @@ class JMRI(object):
 		if not json_state:
 			raise RuntimeError('Aspect invalid')
 		path = '/json/signalMast/' + mast_name
-		url = urlparse.urljoin(self._jmri_server_address, path)
+		url = urllib.parse.urljoin(self._jmri_server_address, path)
 
 		json_data = json.dumps({
 			"type": "signalMast",
@@ -154,7 +154,7 @@ class JMRI(object):
 
 	def SetMemoryVar(self, var_name, value):
 		path = '/json/memory/' + var_name 
-		url = urlparse.urljoin(self._jmri_server_address, path)
+		url = urllib.parse.urljoin(self._jmri_server_address, path)
 		json_data = json.dumps({
 			"type": "memory",
 			"data": {

@@ -2,4 +2,3 @@ pyyaml
 PrettyTable
 lxml
 selenium
-urlparse
