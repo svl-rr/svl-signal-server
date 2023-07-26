@@ -466,7 +466,7 @@ def ParseRoute(route_name, route_config):
 
 def LoadConfig(config_file_path):
     """Returns a map of {signal_name -> SignalMast}."""
-    config_data = yaml.load(open(config_file_path, 'r'))
+    config_data = yaml.load(open(config_file_path, 'r'), Loader=yaml.Loader)
     signal_entries = {}  # name -> SignalMast
     for mast_name, configuration in config_data.items():
         logging.debug('Parsing requirements for mast %s', mast_name)
@@ -508,7 +508,7 @@ def LoadConfig(config_file_path):
 
         if 'routes' not in configuration:
             raise AttributeError('Signal mast %s is missing a "routes" stanza' % mast_name)
-        for route_name, route_info in configuration['routes'].iteritems():
+        for route_name, route_info in configuration['routes'].items():
             signal.AddRoute(ParseRoute(route_name, route_info))
 
         del configuration['routes']
